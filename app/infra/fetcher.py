@@ -78,12 +78,14 @@ class Fetcher:
         backoff_s: float = 1.0,
         transport: httpx.BaseTransport | None = None,
         resolver: Callable[[str], list[str]] = resolve_host,
+        validator: Callable[[str], bool] = is_public_address,
     ) -> None:
         self._max_bytes = max_bytes
         self._max_redirects = max_redirects
         self._max_retries = max_retries
         self._backoff_s = backoff_s
         self._resolver = resolver
+        self._validator = validator
         self._client = httpx.Client(
             timeout=timeout_s,
             transport=transport if transport is not None else PinnedTransport(),
@@ -123,7 +125,7 @@ class Fetcher:
         if not addresses:
             raise FetchError(ErrorCode.FETCH_HTTP_ERROR, f"域名无解析结果: {host}")
         for address in addresses:
-            if not is_public_address(address):
+            if not self._validator(address):
                 raise FetchError(
                     ErrorCode.SSRF_BLOCKED, f"目标地址被安全策略拦截: {address}"
                 )
