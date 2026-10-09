@@ -51,6 +51,15 @@ class VectorIndex:
     def delete_by_source(self, source_id: int) -> None:
         self._collection.delete(where={"source_id": source_id})
 
+    def delete_many(self, child_ids: Sequence[int]) -> None:
+        if not child_ids:
+            return
+        self._collection.delete(ids=[str(child_id) for child_id in child_ids])
+
+    def all_ids(self) -> list[int]:
+        result = self._collection.get(include=[])
+        return [int(value) for value in result.get("ids", [])]
+
     def query(self, embedding: Sequence[float], *, top_k: int) -> list[int]:
         if self._collection.count() == 0:
             return []

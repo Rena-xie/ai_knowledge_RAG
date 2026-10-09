@@ -38,6 +38,20 @@ class FtsIndex:
         with self._engine.begin() as connection:
             connection.execute(text(CREATE_FTS_SQL))
 
+    def reset(self) -> None:
+        """清空全文索引并重建虚表（用于全量重建）。"""
+
+        with self._engine.begin() as connection:
+            connection.execute(text("DROP TABLE IF EXISTS child_chunks_fts"))
+        self.ensure_schema()
+
+    def all_ids(self) -> list[int]:
+        """返回索引中的全部 child_id。"""
+
+        with self._engine.connect() as connection:
+            rows = connection.execute(text("SELECT child_id FROM child_chunks_fts"))
+            return [int(row[0]) for row in rows]
+
     def upsert(self, child_id: int, embedding_text: str) -> None:
         tokens = tokenize(embedding_text)
         with self._engine.begin() as connection:
