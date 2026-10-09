@@ -35,3 +35,60 @@ class SourceListResponse(BaseModel):
     total: int
     page: int
     size: int
+
+
+class QuestionRequest(BaseModel):
+    """检索与问答的公共请求体。"""
+
+    question: str = Field(min_length=1, max_length=1000)
+
+
+class EvidenceResponse(BaseModel):
+    """检索命中的证据。"""
+
+    source_id: int
+    child_id: int
+    parent_id: int
+    title: str | None
+    url: str
+    heading_path: str
+    score: float
+    text: str
+
+
+class SearchResponse(BaseModel):
+    """调试检索响应。"""
+
+    question: str
+    dense_ids: list[int]
+    bm25_ids: list[int]
+    fused_ids: list[int]
+    evidences: list[EvidenceResponse]
+    elapsed_ms: float
+
+
+class CitationResponse(BaseModel):
+    """通过校验的引用。"""
+
+    source_id: int
+    child_id: int
+    title: str | None
+    url: str
+    heading_path: str
+
+
+class UsageResponse(BaseModel):
+    """Token 用量。"""
+
+    prompt_tokens: int
+    completion_tokens: int
+
+
+class QueryResponse(BaseModel):
+    """问答响应。"""
+
+    answer: str
+    answer_type: str
+    citations: list[CitationResponse]
+    citations_validated: bool
+    usage: UsageResponse

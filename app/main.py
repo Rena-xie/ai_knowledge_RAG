@@ -12,6 +12,8 @@ from app.api.deps import Container
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
 from app.api.middleware import RequestContextMiddleware
+from app.api.query import router as query_router
+from app.api.search import router as search_router
 from app.api.sources import router as sources_router
 from app.core.logging import configure_logging
 from app.core.selfcheck import run_startup_checks
@@ -46,6 +48,8 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
     app.include_router(health_router)
     app.include_router(sources_router)
+    app.include_router(search_router)
+    app.include_router(query_router)
     return app
 
 
