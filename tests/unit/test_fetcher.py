@@ -5,6 +5,7 @@ import pytest
 
 from app.core.errors import ErrorCode
 from app.infra.fetcher import Fetcher, FetchError
+from app.infra.transport import PINNED_IP_EXTENSION
 
 PUBLIC_URL = "https://93.184.216.34/page"
 
@@ -165,3 +166,50 @@ def test_server_error_is_retried_then_succeeds() -> None:
 
     assert result.html == "<p>ok</p>"
     assert len(calls) == 2
+
+
+def test_pins_every_hop_to_validated_ip() -> None:
+    captured: list[dict[str, object]] = []
+
+    def resolver(host: str) -> list[str]:
+        return {
+            "example.test": ["93.184.216.34"],
+            "other.test": ["93.184.216.35"],
+        }[host]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(
+            {
+                "url": str(request.url),
+                "pinned": request.extensions.get(PINNED_IP_EXTENSION),
+            }
+        )
+        if request.url.host == "example.test":
+            return httpx.Response(
+                302, headers={"location": "https://other.test/final"}
+            )
+        return httpx.Response(
+            200, headers={"content-type": "text/html"}, text="<p>ok</p>"
+        )
+
+    fetcher = Fetcher(
+        timeout_s=1,
+        max_bytes=1000,
+        max_redirects=2,
+        max_retries=0,
+        backoff_s=0.0,
+        transport=httpx.MockTransport(handler),
+        resolver=resolver,
+    )
+
+    result = fetcher.fetch("https://example.test/page")
+
+    assert result.url == "https://other.test/final"
+    assert [item["pinned"] for item in captured] == [
+        "93.184.216.34",
+        "93.184.216.35",
+    ]
+    assert [item["url"] for item in captured] == [
+        "https://example.test/page",
+        "https://other.test/final",
+    ]

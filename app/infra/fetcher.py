@@ -1,7 +1,7 @@
 """受 SSRF 防护的网页抓取器（见《项目介绍.md》9.1、10.4）。
 
-限制说明：请求前解析并校验全部 A/AAAA 记录，且每次重定向都重新校验；
-TCP 连接复用由 httpx 完成，极端 DNS 重绑定场景需自定义传输层固定 IP（后续任务）。
+请求前解析并校验全部 A/AAAA 记录，选定 IP 通过 `pinned_ip` 扩展交给
+PinnedTransport 建连（不再二次解析），并对每次重定向重新校验。
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from app.core.errors import ErrorCode
+from app.infra.transport import PINNED_IP_EXTENSION, PinnedTransport
 
 ALLOWED_SCHEMES = frozenset({"http", "https"})
 ALLOWED_CONTENT_TYPES = frozenset({"text/html", "application/xhtml+xml"})
@@ -84,8 +85,13 @@ class Fetcher:
         self._backoff_s = backoff_s
         self._resolver = resolver
         self._client = httpx.Client(
-            timeout=timeout_s, transport=transport, follow_redirects=False
+            timeout=timeout_s,
+            transport=transport if transport is not None else PinnedTransport(),
+            follow_redirects=False,
         )
+
+    def close(self) -> None:
+        self._client.close()
 
     def fetch(self, url: str) -> FetchResult:
         last_error: FetchError | None = None
@@ -100,7 +106,9 @@ class Fetcher:
                     time.sleep(self._backoff_s * (2**attempt))
         raise last_error or FetchError(ErrorCode.FETCH_HTTP_ERROR, "抓取失败")
 
-    def _validate(self, url: str) -> None:
+    def _validate(self, url: str) -> str:
+        """校验协议与全部解析地址，返回用于建连的 IP。"""
+
         parts = urlsplit(url)
         if parts.scheme not in ALLOWED_SCHEMES:
             raise FetchError(ErrorCode.SSRF_BLOCKED, f"仅支持 HTTP/HTTPS: {url}")
@@ -119,13 +127,16 @@ class Fetcher:
                 raise FetchError(
                     ErrorCode.SSRF_BLOCKED, f"目标地址被安全策略拦截: {address}"
                 )
+        return addresses[0]
 
     def _fetch_once(self, url: str) -> FetchResult:
         current = url
         for hop in range(self._max_redirects + 1):
-            self._validate(current)
+            pinned_ip = self._validate(current)
             try:
-                with self._client.stream("GET", current) as response:
+                with self._client.stream(
+                    "GET", current, extensions={PINNED_IP_EXTENSION: pinned_ip}
+                ) as response:
                     if response.status_code in REDIRECT_STATUSES:
                         location = response.headers.get("location")
                         if not location:
