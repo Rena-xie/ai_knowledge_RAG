@@ -168,6 +168,15 @@ def test_get_returns_none_for_missing_source(env: dict[str, object]) -> None:
     assert service.get(999) is None
 
 
+def test_get_or_create_rejects_invalid_url(env: dict[str, object]) -> None:
+    service: SourceService = env["service"]
+
+    with pytest.raises(AppError) as excinfo:
+        service.get_or_create("ftp://example.com/a")
+
+    assert excinfo.value.code == ErrorCode.INVALID_REQUEST
+
+
 def test_delete_removes_all_traces(env: dict[str, object]) -> None:
     service: SourceService = env["service"]
     fts: FtsIndex = env["fts"]

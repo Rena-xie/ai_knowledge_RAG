@@ -12,6 +12,7 @@ from app.api.deps import Container
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
 from app.api.middleware import RequestContextMiddleware
+from app.api.sources import router as sources_router
 from app.core.logging import configure_logging
 from app.core.selfcheck import run_startup_checks
 from app.core.settings import get_settings
@@ -44,6 +45,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.add_middleware(RequestContextMiddleware)
     app.include_router(health_router)
+    app.include_router(sources_router)
     return app
 
 

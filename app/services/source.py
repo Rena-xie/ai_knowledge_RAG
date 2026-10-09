@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.clock import utc_now_iso
 from app.core.errors import AppError, ErrorCode
 from app.domain.state import SourceStatus, allows_direct_delete, can_transition
-from app.domain.url import normalize_url
+from app.domain.url import InvalidUrlError, normalize_url
 from app.infra.db import ChildChunk, KnowledgeSource, ParentChunk
 from app.infra.fts import FtsIndex
 from app.infra.vector import VectorIndex
@@ -47,7 +47,10 @@ class SourceService:
     def get_or_create(self, url: str) -> SubmitResult:
         """按规范化 URL 鉴重；重复提交行为见设计文档 5.3。"""
 
-        canonical = normalize_url(url)
+        try:
+            canonical = normalize_url(url)
+        except InvalidUrlError as error:
+            raise AppError(ErrorCode.INVALID_REQUEST, str(error)) from error
         with self._session_factory() as session:
             existing = session.scalar(
                 select(KnowledgeSource).where(
