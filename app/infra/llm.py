@@ -96,6 +96,9 @@ class LLMClient:
                 time.sleep(self._backoff_s * (2**attempt))
         raise last_error or LLMError("LLM 调用失败")
 
+    def close(self) -> None:
+        self._client.close()
+
     @staticmethod
     def _parse(response: httpx.Response) -> LLMResult:
         try:

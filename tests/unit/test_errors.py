@@ -9,6 +9,7 @@ def test_every_error_code_has_http_mapping() -> None:
 
 def test_mapping_matches_design_doc() -> None:
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.INVALID_REQUEST] == 400
+    assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.REQUEST_TOO_LARGE] == 413
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.NOT_FOUND] == 404
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.INGEST_BUSY] == 503
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.INGEST_TIMEOUT] == 504

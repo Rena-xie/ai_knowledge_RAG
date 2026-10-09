@@ -7,6 +7,7 @@ class ErrorCode(StrEnum):
     """全部业务错误码。"""
 
     INVALID_REQUEST = "INVALID_REQUEST"
+    REQUEST_TOO_LARGE = "REQUEST_TOO_LARGE"
     NOT_FOUND = "NOT_FOUND"
     INGEST_BUSY = "INGEST_BUSY"
     INGEST_TIMEOUT = "INGEST_TIMEOUT"
@@ -26,6 +27,7 @@ class ErrorCode(StrEnum):
 
 HTTP_STATUS_BY_ERROR_CODE: dict[ErrorCode, int] = {
     ErrorCode.INVALID_REQUEST: 400,
+    ErrorCode.REQUEST_TOO_LARGE: 413,
     ErrorCode.NOT_FOUND: 404,
     ErrorCode.INGEST_BUSY: 503,
     ErrorCode.INGEST_TIMEOUT: 504,

@@ -54,6 +54,9 @@ class EmbeddingClient:
             vectors.extend(self._embed_batch(items[start : start + self._batch_size]))
         return vectors
 
+    def close(self) -> None:
+        self._client.close()
+
     def _embed_batch(self, batch: Sequence[str]) -> list[list[float]]:
         payload = {"model": self._model, "input": list(batch)}
         last_error: EmbeddingError | None = None
