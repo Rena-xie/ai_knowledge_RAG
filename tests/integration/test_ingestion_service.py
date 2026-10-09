@@ -32,6 +32,17 @@ ARTICLE = """
 </article></body></html>
 """
 
+NO_HEADING_ARTICLE = """
+<html><head><title>教程页</title></head><body><article>
+<p>Python 的数据类型包括整数、浮点数、字符串与布尔值等，
+理解这些基本类型是学习编程语言的第一步。</p>
+<p>整数在 Python 中没有大小限制，可以表示非常大的数值；
+浮点数采用二进制存储，因此可能存在精度误差。</p>
+<p>字符串可以使用单引号或双引号括起来，转义字符用反斜杠表示，也支持多行字符串与格式化写法。</p>
+<p>布尔值只有真与假两个取值，通常由比较运算产生，并广泛用于条件判断与循环控制等流程之中。</p>
+</article></body></html>
+"""
+
 
 class FakeFetcher:
     def __init__(self, result: FetchResult | Exception) -> None:
@@ -233,3 +244,24 @@ def test_ingest_timeout_is_enforced(env: dict[str, object]) -> None:
     source = env["source_service"].get(1)
     assert source.status == "failed"
     assert source.error_code == ErrorCode.INGEST_TIMEOUT.value
+
+
+def test_ingest_uses_page_title_as_fallback_heading_path(
+    env: dict[str, object],
+) -> None:
+    fetcher = FakeFetcher(
+        FetchResult(
+            url="https://example.com/a",
+            content_type="text/html",
+            html=NO_HEADING_ARTICLE,
+        )
+    )
+    service = build_service(env, fetcher=fetcher)
+
+    result = service.ingest("https://example.com/a")
+
+    with env["session_factory"]() as session:
+        children = session.scalars(select(ChildChunk)).all()
+    assert result.status == "completed"
+    assert children
+    assert {child.heading_path for child in children} == {"教程页"}

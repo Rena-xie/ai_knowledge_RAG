@@ -95,3 +95,20 @@ def test_invalid_child_params_are_rejected() -> None:
             child_max_chars=100,
             child_overlap_chars=10,
         )
+
+
+def test_fallback_heading_path_applies_when_no_markdown_headings() -> None:
+    parents = chunk_markdown("正文内容。", fallback_heading_path="页面标题", **PARAMS)
+
+    assert parents[0].heading_path == "页面标题"
+    child = parents[0].children[0]
+    assert child.heading_path == "页面标题"
+    assert child.embedding_text.startswith("页面标题\n")
+
+
+def test_fallback_heading_path_does_not_override_real_headings() -> None:
+    markdown = "引言段落。\n\n# 正式标题\n\n章节内容。\n"
+
+    parents = chunk_markdown(markdown, fallback_heading_path="页面标题", **PARAMS)
+
+    assert [parent.heading_path for parent in parents] == ["页面标题", "正式标题"]

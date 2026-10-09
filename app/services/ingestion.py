@@ -100,6 +100,7 @@ class IngestionService:
                 child_target_chars=self._settings.child_target_chars,
                 child_max_chars=self._settings.child_max_chars,
                 child_overlap_chars=self._settings.child_overlap_chars,
+                fallback_heading_path=document.title,
             )
             if not parents:
                 raise AppError(ErrorCode.PARSE_EMPTY_CONTENT, "切块结果为空")

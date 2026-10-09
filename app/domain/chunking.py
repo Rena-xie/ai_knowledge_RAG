@@ -84,8 +84,14 @@ def _join_path(stack: Sequence[str]) -> str:
     return " / ".join(stack)
 
 
-def parse_blocks(markdown: str) -> list[Block]:
-    """把 Markdown 解析为带标题路径的有序内容块。"""
+def parse_blocks(
+    markdown: str, *, fallback_heading_path: str | None = None
+) -> list[Block]:
+    """把 Markdown 解析为带标题路径的有序内容块。
+
+    页面没有任何 Markdown 标题时，使用 ``fallback_heading_path``（通常为页面标题）
+    作为块的标题路径。
+    """
 
     lines = markdown.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     blocks: list[Block] = []
@@ -108,7 +114,7 @@ def parse_blocks(markdown: str) -> list[Block]:
             index += 1
             continue
 
-        heading_path = _join_path(heading_stack)
+        heading_path = _join_path(heading_stack) or (fallback_heading_path or "")
 
         if line.lstrip().startswith("```"):
             index += 1
@@ -297,6 +303,7 @@ def chunk_markdown(
     child_target_chars: int,
     child_max_chars: int,
     child_overlap_chars: int,
+    fallback_heading_path: str | None = None,
 ) -> list[ParentChunk]:
     """按章节切 Parent，并在 Parent 内部切 Child。"""
 
@@ -309,7 +316,8 @@ def chunk_markdown(
 
     parents: list[ParentChunk] = []
     for _section, section_blocks in groupby(
-        parse_blocks(markdown), key=lambda block: block.section
+        parse_blocks(markdown, fallback_heading_path=fallback_heading_path),
+        key=lambda block: block.section,
     ):
         for parent_blocks in _group_for_parents(list(section_blocks), parent_max_chars):
             children = _build_children(
