@@ -52,6 +52,8 @@ class VectorIndex:
         self._collection.delete(where={"source_id": source_id})
 
     def query(self, embedding: Sequence[float], *, top_k: int) -> list[int]:
+        if self._collection.count() == 0:
+            return []
         result = self._collection.query(
             query_embeddings=[list(embedding)], n_results=top_k
         )
