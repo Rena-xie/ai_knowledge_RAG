@@ -1,4 +1,4 @@
-"""运维命令：重建索引（见《项目介绍.md》5.4）。"""
+"""运维命令：重建索引、一致性校验与备份（见 5.4、5.6）。"""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import argparse
 import json
 from collections.abc import Sequence
 from dataclasses import asdict
+from pathlib import Path
 
 from app.core.settings import Settings, get_settings
 from app.infra.db import create_db_engine, create_session_factory, init_db
@@ -58,4 +59,44 @@ def run_reindex(
         else maintenance.reindex_all()
     )
     print(json.dumps(asdict(report), ensure_ascii=False))
+    return 0
+
+
+def run_consistency(
+    argv: Sequence[str] | None = None, *, service: MaintenanceService | None = None
+) -> int:
+    """校验三处数据一致性；不一致时返回退出码 1。"""
+
+    parser = argparse.ArgumentParser(
+        prog="check_consistency", description="校验 SQLite/FTS5/Chroma 数据一致性"
+    )
+    parser.parse_args(argv)
+    maintenance = service if service is not None else build_maintenance_service(
+        get_settings()
+    )
+    report = maintenance.check_consistency()
+    print(json.dumps(asdict(report), ensure_ascii=False))
+    if not report.consistent:
+        print("数据不一致：请运行 scripts/reindex.py 重建派生索引")
+        return 1
+    return 0
+
+
+def run_backup(
+    argv: Sequence[str] | None = None, *, service: MaintenanceService | None = None
+) -> int:
+    """备份 SQLite 与 Chroma 数据（建议先停服）。"""
+
+    parser = argparse.ArgumentParser(
+        prog="backup", description="备份 SQLite 与 Chroma 数据"
+    )
+    parser.add_argument(
+        "--target", type=Path, default=Path("backups"), help="备份输出目录"
+    )
+    args = parser.parse_args(argv)
+    maintenance = service if service is not None else build_maintenance_service(
+        get_settings()
+    )
+    report = maintenance.backup(args.target)
+    print(json.dumps(asdict(report), ensure_ascii=False, default=str))
     return 0

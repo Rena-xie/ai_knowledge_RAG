@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import json
+import shutil
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -29,6 +34,38 @@ class ReindexReport:
     fts_entries: int
     vector_entries: int
     pruned_vectors: int
+
+
+@dataclass(frozen=True)
+class ConsistencyReport:
+    """三处数据一致性报告。"""
+
+    db_children: int
+    fts_entries: int
+    vector_entries: int
+    missing_in_fts: tuple[int, ...]
+    missing_in_vector: tuple[int, ...]
+    extra_in_fts: tuple[int, ...]
+    extra_in_vector: tuple[int, ...]
+
+    @property
+    def consistent(self) -> bool:
+        return not (
+            self.missing_in_fts
+            or self.missing_in_vector
+            or self.extra_in_fts
+            or self.extra_in_vector
+        )
+
+
+@dataclass(frozen=True)
+class BackupReport:
+    """备份产物路径。"""
+
+    target: Path
+    sqlite_backup: Path
+    chroma_backup: Path
+    manifest: Path
 
 
 class MaintenanceService:
@@ -128,3 +165,64 @@ class MaintenanceService:
                 else:
                     row.value = value
             session.commit()
+
+    def check_consistency(self) -> ConsistencyReport:
+        """比对 SQLite（权威）、FTS5 与 Chroma 的 child_id 集合。"""
+
+        db_ids = {child_id for child_id, _source, _text in self._children()}
+        fts_ids = set(self._fts_index.all_ids())
+        vector_ids = set(self._vector_index.all_ids())
+        return ConsistencyReport(
+            db_children=len(db_ids),
+            fts_entries=len(fts_ids),
+            vector_entries=len(vector_ids),
+            missing_in_fts=tuple(sorted(db_ids - fts_ids)),
+            missing_in_vector=tuple(sorted(db_ids - vector_ids)),
+            extra_in_fts=tuple(sorted(fts_ids - db_ids)),
+            extra_in_vector=tuple(sorted(vector_ids - db_ids)),
+        )
+
+    def backup(self, target: Path) -> BackupReport:
+        """备份 SQLite（在线一致性快照）与 Chroma 目录；建议停服执行。"""
+
+        target.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        sqlite_backup = target / f"app-{timestamp}.db"
+        self._backup_sqlite(self._settings.sqlite_path, sqlite_backup)
+        chroma_backup = target / f"chroma-{timestamp}"
+        if self._settings.chroma_path.exists():
+            shutil.copytree(self._settings.chroma_path, chroma_backup)
+        manifest = target / f"manifest-{timestamp}.json"
+        manifest.write_text(
+            json.dumps(
+                {
+                    "created_at": self._clock(),
+                    "sqlite_source": str(self._settings.sqlite_path),
+                    "chroma_source": str(self._settings.chroma_path),
+                    "sqlite_backup": sqlite_backup.name,
+                    "chroma_backup": chroma_backup.name,
+                    "note": "备份应在服务停止状态下执行；恢复后请运行一致性校验",
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return BackupReport(
+            target=target,
+            sqlite_backup=sqlite_backup,
+            chroma_backup=chroma_backup,
+            manifest=manifest,
+        )
+
+    @staticmethod
+    def _backup_sqlite(source: Path, destination: Path) -> None:
+        source_connection = sqlite3.connect(source)
+        try:
+            destination_connection = sqlite3.connect(destination)
+            try:
+                source_connection.backup(destination_connection)
+            finally:
+                destination_connection.close()
+        finally:
+            source_connection.close()

@@ -1,11 +1,14 @@
 """派生索引维护：重建、一致性校验与备份（见《项目介绍.md》5.4、5.6）。"""
 
+import json
+import sqlite3
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import pytest
 from sqlalchemy import Engine, select
 
+from app.cli.maintenance import run_backup, run_consistency
 from app.core.settings import Settings
 from app.infra.db import (
     ChildChunk,
@@ -171,3 +174,75 @@ def test_reindex_updates_index_meta(env: dict[str, object]) -> None:
     assert meta["embedding_model"] == "BAAI/bge-m3"
     assert meta["chunker_version"] == "v1"
     assert meta["rebuilt_at"]
+
+
+def test_consistency_report_is_clean_after_reindex(env: dict[str, object]) -> None:
+    seed_source(env, url="https://example.com/a")
+    service: MaintenanceService = env["service"]
+    service.reindex_all()
+
+    report = service.check_consistency()
+
+    assert report.consistent is True
+    assert report.db_children == 2
+    assert report.fts_entries == 2
+    assert report.vector_entries == 2
+
+
+def test_consistency_report_detects_drift(env: dict[str, object]) -> None:
+    seed_source(env, url="https://example.com/a")
+    service: MaintenanceService = env["service"]
+    service.reindex_all()
+    env["vector"].delete_many([1])
+    env["fts"].upsert(7777, "孤儿条目")
+
+    report = service.check_consistency()
+
+    assert report.consistent is False
+    assert report.missing_in_vector == (1,)
+    assert report.extra_in_fts == (7777,)
+
+
+def test_backup_creates_restorable_copy(env: dict[str, object]) -> None:
+    seed_source(env, url="https://example.com/a")
+    service: MaintenanceService = env["service"]
+    service.reindex_all()
+    target = env["tmp_path"] / "backup"
+
+    report = service.backup(target)
+
+    assert report.sqlite_backup.is_file()
+    assert report.chroma_backup.is_dir()
+    assert report.manifest.is_file()
+    manifest = json.loads(report.manifest.read_text(encoding="utf-8"))
+    assert manifest["sqlite_backup"] == report.sqlite_backup.name
+
+    connection = sqlite3.connect(report.sqlite_backup)
+    try:
+        count = connection.execute("SELECT COUNT(*) FROM child_chunks").fetchone()[0]
+    finally:
+        connection.close()
+    assert count == 2
+
+
+def test_consistency_command_exit_codes(env: dict[str, object]) -> None:
+    seed_source(env, url="https://example.com/a")
+    service: MaintenanceService = env["service"]
+    service.reindex_all()
+
+    assert run_consistency([], service=service) == 0
+
+    env["vector"].delete_many([1])
+
+    assert run_consistency([], service=service) == 1
+
+
+def test_backup_command_returns_success(env: dict[str, object]) -> None:
+    seed_source(env, url="https://example.com/a")
+    service: MaintenanceService = env["service"]
+    target = env["tmp_path"] / "cli-backup"
+
+    exit_code = run_backup(["--target", str(target)], service=service)
+
+    assert exit_code == 0
+    assert list(target.glob("manifest-*.json"))
