@@ -68,3 +68,8 @@ class VectorIndex:
         )
         ids = result.get("ids") or [[]]
         return [int(value) for value in ids[0]]
+
+    def close(self) -> None:
+        """释放底层客户端，确保 Windows 下临时数据目录可被删除。"""
+
+        self._client.close()

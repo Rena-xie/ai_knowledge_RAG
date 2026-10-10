@@ -95,4 +95,5 @@ class Container:
             close = getattr(client, "close", None)
             if callable(close):
                 close()
+        self.vector_index.close()
         self.engine.dispose()

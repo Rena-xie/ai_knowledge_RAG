@@ -1,5 +1,6 @@
 """Chroma 向量索引（见《项目介绍.md》7.1、ADR-007）。"""
 
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -46,3 +47,14 @@ def test_delete_by_source_removes_only_that_source(index: VectorIndex) -> None:
 
     assert index.count() == 1
     assert index.query([1.0, 0.0, 0.0], top_k=1) == [2]
+
+
+def test_close_releases_files(tmp_path: Path) -> None:
+    path = tmp_path / "chroma"
+    index = VectorIndex(path)
+    index.upsert([1], [[1.0, 0.0, 0.0]], [{"source_id": 1}])
+
+    index.close()
+
+    shutil.rmtree(path)  # Windows 下若文件仍被占用会抛 PermissionError
+    assert not path.exists()
