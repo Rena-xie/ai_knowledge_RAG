@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "corpus": "tests/evals/corpus",
+  "chunker_version": "v1",
+  "note": "相关 child_id 基于固定夹具语料与 chunker v1 人工标注；更换语料或切块规则后需重新标注。",
+  "questions": [
+    {
+      "id": "q01",
+      "category": "专有名词",
+      "question": "BM25 的 k1 和 b 参数分别控制什么？",
+      "relevant_child_ids": [4]
+    },
+    {
+      "id": "q02",
+      "category": "专有名词",
+      "question": "倒排索引配合 jieba 分词解决了什么问题？",
+      "relevant_child_ids": [5]
+    },
+    {
+      "id": "q03",
+      "category": "专有名词",
+      "question": "RRF 的平滑常数通常取多少？",
+      "relevant_child_ids": [17]
+    },
+    {
+      "id": "q04",
+      "category": "专有名词",
+      "question": "Python 里十六进制整数怎么写？",
+      "relevant_child_ids": [8]
+    },
+    {
+      "id": "q05",
+      "category": "语义改写",
+      "question": "为什么浮点数计算会出现小数误差？",
+      "relevant_child_ids": [9]
+    },
+    {
+      "id": "q06",
+      "category": "语义改写",
+      "question": "文档太长时 BM25 的得分为什么会受影响？",
+      "relevant_child_ids": [3]
+    },
+    {
+      "id": "q07",
+      "category": "语义改写",
+      "question": "两路检索的得分不在同一量纲，直接相加会有什么问题？",
+      "relevant_child_ids": [18]
+    },
+    {
+      "id": "q08",
+      "category": "语义改写",
+      "question": "Python 的变量需要提前声明类型吗？",
+      "relevant_child_ids": [7]
+    },
+    {
+      "id": "q09",
+      "category": "代码查询",
+      "question": "示例代码 print(\"hello, world\") 出现在哪个章节？",
+      "relevant_child_ids": [14]
+    },
+    {
+      "id": "q10",
+      "category": "代码查询",
+      "question": "Python 中 / 与 // 的结果类型有什么区别？",
+      "relevant_child_ids": [12]
+    },
+    {
+      "id": "q11",
+      "category": "代码查询",
+      "question": "字符串前加字母 r 有什么作用？",
+      "relevant_child_ids": [11]
+    },
+    {
+      "id": "q12",
+      "category": "跨章节",
+      "question": "整数和浮点数在存储与精度上有什么不同？",
+      "relevant_child_ids": [8, 9]
+    },
+    {
+      "id": "q13",
+      "category": "跨章节",
+      "question": "布尔值和整数之间如何转换？",
+      "relevant_child_ids": [13]
+    },
+    {
+      "id": "q14",
+      "category": "跨章节",
+      "question": "为什么中文检索需要分词，而向量检索更依赖语义？",
+      "relevant_child_ids": [5, 6]
+    },
+    {
+      "id": "q15",
+      "category": "跨章节",
+      "question": "RRF 如何避免量纲问题，同时保证并列结果稳定？",
+      "relevant_child_ids": [18, 19]
+    },
+    {
+      "id": "q16",
+      "category": "无答案",
+      "question": "HNSW 索引的 ef_construction 参数怎么调？"
+    },
+    {
+      "id": "q17",
+      "category": "无答案",
+      "question": "Kubernetes Ingress 怎么配置 TLS 证书？"
+    },
+    {
+      "id": "q18",
+      "category": "无答案",
+      "question": "Python 的 asyncio 事件循环内部是如何实现的？"
+    },
+    {
+      "id": "q19",
+      "category": "无答案",
+      "question": "PostgreSQL 的 VACUUM 有什么作用？"
+    },
+    {
+      "id": "q20",
+      "category": "无答案",
+      "question": "DeepSeek API 的计费标准是什么？"
+    }
+  ]
+}
