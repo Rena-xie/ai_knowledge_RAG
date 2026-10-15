@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from app.api.deps import Container
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
-from app.api.middleware import RequestContextMiddleware
+from app.api.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
 from app.api.query import router as query_router
 from app.api.search import router as search_router
 from app.api.sources import router as sources_router
@@ -56,6 +56,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     register_exception_handlers(app)
+    app.add_middleware(BodySizeLimitMiddleware)
     app.add_middleware(RequestContextMiddleware)
     app.include_router(health_router)
     app.include_router(sources_router)

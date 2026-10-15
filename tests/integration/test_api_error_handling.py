@@ -44,3 +44,20 @@ def test_oversized_body_is_rejected(client: TestClient) -> None:
 
     assert response.status_code == 413
     assert response.json()["error"]["code"] == "REQUEST_TOO_LARGE"
+    assert response.json()["error"]["request_id"] == response.headers["X-Request-ID"]
+
+
+def test_oversized_chunked_body_is_rejected(client: TestClient) -> None:
+    """无 Content-Length 的分块请求同样受请求体上限约束。"""
+
+    def chunks():
+        yield b'{"url": "'
+        yield b"x" * 150
+        yield b"y" * 150
+        yield b'"}'
+
+    response = client.post("/api/v1/sources", content=chunks())
+
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "REQUEST_TOO_LARGE"
+    assert len(response.headers["X-Request-ID"]) == 32
