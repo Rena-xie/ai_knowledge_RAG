@@ -1,0 +1,363 @@
+{
+  "created_at": "2026-10-15T08:11:01Z",
+  "questions_file": "tests\\evals\\questions.json",
+  "corpus": "tests\\evals\\corpus.json",
+  "total": 22,
+  "recall_at_5": 0.7059,
+  "citation_validity": 1.0,
+  "insufficient_accuracy": 1.0,
+  "results": [
+    {
+      "question_id": "q01",
+      "category": "专有名词",
+      "retrieved": [
+        286,
+        290,
+        288,
+        302,
+        304
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 3,
+      "max_similarity": 0.7591428756713867
+    },
+    {
+      "question_id": "q02",
+      "category": "专有名词",
+      "retrieved": [
+        168,
+        94,
+        108,
+        90,
+        150
+      ],
+      "recall_hit": false,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 1,
+      "max_similarity": 0.6268266439437866
+    },
+    {
+      "question_id": "q03",
+      "category": "专有名词",
+      "retrieved": [
+        523,
+        524,
+        908,
+        1144,
+        353
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 1,
+      "max_similarity": 0.6054121851921082
+    },
+    {
+      "question_id": "q04",
+      "category": "专有名词",
+      "retrieved": [
+        753,
+        759,
+        743,
+        747,
+        745
+      ],
+      "recall_hit": false,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 2,
+      "max_similarity": 0.6890254020690918
+    },
+    {
+      "question_id": "q05",
+      "category": "专有名词",
+      "retrieved": [
+        2096,
+        2295,
+        2088,
+        2287,
+        2090
+      ],
+      "recall_hit": false,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 2,
+      "max_similarity": 0.6481079459190369
+    },
+    {
+      "question_id": "q06",
+      "category": "语义改写",
+      "retrieved": [
+        502,
+        482,
+        480,
+        488,
+        536
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 1,
+      "max_similarity": 0.7595630884170532
+    },
+    {
+      "question_id": "q07",
+      "category": "语义改写",
+      "retrieved": [
+        563,
+        1320,
+        589,
+        172,
+        282
+      ],
+      "recall_hit": false,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 2,
+      "max_similarity": 0.6251028180122375
+    },
+    {
+      "question_id": "q08",
+      "category": "语义改写",
+      "retrieved": [
+        1434,
+        1386,
+        1432,
+        1387,
+        1415
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 1,
+      "max_similarity": 0.7568338513374329
+    },
+    {
+      "question_id": "q09",
+      "category": "语义改写",
+      "retrieved": [
+        1317,
+        1307,
+        1297,
+        1293,
+        1319
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 1,
+      "max_similarity": 0.7143852710723877
+    },
+    {
+      "question_id": "q10",
+      "category": "语义改写",
+      "retrieved": [
+        336,
+        458,
+        424,
+        374,
+        630
+      ],
+      "recall_hit": false,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 1,
+      "max_similarity": 0.6663527488708496
+    },
+    {
+      "question_id": "q11",
+      "category": "代码查询",
+      "retrieved": [
+        47,
+        53,
+        23,
+        57,
+        60
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 3,
+      "max_similarity": 0.8269362449645996
+    },
+    {
+      "question_id": "q12",
+      "category": "代码查询",
+      "retrieved": [
+        1466,
+        1488,
+        1478,
+        1486,
+        1460
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 1,
+      "max_similarity": 0.7188887596130371
+    },
+    {
+      "question_id": "q13",
+      "category": "代码查询",
+      "retrieved": [
+        1294,
+        1312,
+        1316,
+        1314,
+        1310
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 1,
+      "max_similarity": 0.8109717965126038
+    },
+    {
+      "question_id": "q14",
+      "category": "代码查询",
+      "retrieved": [
+        578,
+        579,
+        582,
+        422,
+        353
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 1,
+      "max_similarity": 0.6071970462799072
+    },
+    {
+      "question_id": "q15",
+      "category": "跨章节",
+      "retrieved": [
+        185,
+        286,
+        210,
+        228,
+        208
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 2,
+      "max_similarity": 0.6956390142440796
+    },
+    {
+      "question_id": "q16",
+      "category": "跨章节",
+      "retrieved": [
+        182,
+        144,
+        150,
+        142,
+        166
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 2,
+      "max_similarity": 0.7129409909248352
+    },
+    {
+      "question_id": "q17",
+      "category": "跨章节",
+      "retrieved": [
+        2284,
+        12,
+        2329,
+        1252,
+        2130
+      ],
+      "recall_hit": true,
+      "answer_type": "answered",
+      "citations_validated": true,
+      "citation_count": 3,
+      "max_similarity": 0.7300658822059631
+    },
+    {
+      "question_id": "q18",
+      "category": "无答案",
+      "retrieved": [
+        1075,
+        1234,
+        1071,
+        1305,
+        482
+      ],
+      "recall_hit": null,
+      "answer_type": "insufficient_evidence",
+      "citations_validated": true,
+      "citation_count": 0,
+      "max_similarity": 0.5490303635597229
+    },
+    {
+      "question_id": "q19",
+      "category": "无答案",
+      "retrieved": [
+        1083,
+        316,
+        836,
+        1121,
+        1113
+      ],
+      "recall_hit": null,
+      "answer_type": "insufficient_evidence",
+      "citations_validated": true,
+      "citation_count": 0,
+      "max_similarity": 0.4484706521034241
+    },
+    {
+      "question_id": "q20",
+      "category": "无答案",
+      "retrieved": [
+        1439,
+        816,
+        1121,
+        812,
+        872
+      ],
+      "recall_hit": null,
+      "answer_type": "insufficient_evidence",
+      "citations_validated": true,
+      "citation_count": 0,
+      "max_similarity": 0.5261046290397644
+    },
+    {
+      "question_id": "q21",
+      "category": "无答案",
+      "retrieved": [
+        1121,
+        2252,
+        1234,
+        2246,
+        2161
+      ],
+      "recall_hit": null,
+      "answer_type": "insufficient_evidence",
+      "citations_validated": true,
+      "citation_count": 0,
+      "max_similarity": 0.5327883362770081
+    },
+    {
+      "question_id": "q22",
+      "category": "无答案",
+      "retrieved": [
+        1934,
+        1964,
+        1932,
+        2179,
+        482
+      ],
+      "recall_hit": null,
+      "answer_type": "insufficient_evidence",
+      "citations_validated": true,
+      "citation_count": 0,
+      "max_similarity": 0.569683849811554
+    }
+  ]
+}

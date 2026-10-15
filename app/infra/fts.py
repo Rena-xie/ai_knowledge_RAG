@@ -15,13 +15,65 @@ CREATE_FTS_SQL = (
     "USING fts5(child_id UNINDEXED, embedding_text)"
 )
 
+# 代码符号在 jieba 与 FTS5 的 unicode61 分词器下都会丢失，因此映射为字母 token。
+# 不含 `*` 与 `**`：Markdown 的列表符号与加粗标记会造成大量误召回。
+SYMBOL_CHARS = frozenset("+-*/%=<>!&|^~")
+SYMBOL_TOKENS = {
+    "/": "sym_slash",
+    "//": "sym_dslash",
+    "%": "sym_percent",
+    "==": "sym_eq",
+    "!=": "sym_ne",
+    ">=": "sym_ge",
+    "<=": "sym_le",
+    "->": "sym_arrow",
+    "=>": "sym_fat_arrow",
+    "+=": "sym_plus_eq",
+    "-=": "sym_minus_eq",
+    "*=": "sym_mul_eq",
+    "/=": "sym_div_eq",
+    "&&": "sym_and",
+    "||": "sym_or",
+}
+
+
+def _symbol_tokens(value: str) -> list[str]:
+    """抽取代码符号并映射为可被 FTS5 索引的 token。
+
+    仅在符号串至少一侧不是字母数字时才判定为代码符号，避免把 URL 里的
+    `://` 或路径分隔符当成运算符；紧跟冒号的符号串（URL 协议）直接忽略
+    （见《项目介绍.md》7.1）。
+    """
+
+    tokens: list[str] = []
+    length = len(value)
+    index = 0
+    while index < length:
+        if value[index] not in SYMBOL_CHARS:
+            index += 1
+            continue
+        end = index
+        while end < length and value[end] in SYMBOL_CHARS:
+            end += 1
+        after_scheme = index > 0 and value[index - 1] == ":"
+        left_bound = index == 0 or not value[index - 1].isalnum()
+        right_bound = end == length or not value[end].isalnum()
+        if not after_scheme and (left_bound or right_bound):
+            mapped = SYMBOL_TOKENS.get(value[index:end])
+            if mapped and mapped not in tokens:
+                tokens.append(mapped)
+        index = end
+    return tokens
+
 
 def tokenize(value: str) -> str:
-    """用 jieba 搜索引擎模式分词，返回空格分隔的词串。"""
+    """jieba 搜索引擎模式分词 + 代码符号归一化，返回空格分隔的词串。"""
 
-    return " ".join(
+    tokens = [
         token.strip() for token in jieba.cut_for_search(value) if token.strip()
-    )
+    ]
+    tokens.extend(_symbol_tokens(value))
+    return " ".join(tokens)
 
 
 def _quote(token: str) -> str:

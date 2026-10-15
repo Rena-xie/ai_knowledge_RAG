@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     bm25_top_k: int = 20
     rrf_k: int = 60
     final_top_k: int = 8
+    route_head_reserve: int = 1
     min_dense_similarity: float = 0.58
 
     # 切块与上下文

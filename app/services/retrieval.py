@@ -79,6 +79,7 @@ class RetrievalService:
             bm25_ids,
             k=self._settings.rrf_k,
             top_k=self._settings.final_top_k,
+            head_reserve=self._settings.route_head_reserve,
         )
         fused_ids = tuple(hit.child_id for hit in fused)
         if not fused or max_similarity < self._settings.min_dense_similarity:

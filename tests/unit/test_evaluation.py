@@ -86,6 +86,10 @@ def test_reports_metrics() -> None:
     assert report.citation_validity == pytest.approx(0.5)
     assert report.insufficient_accuracy == pytest.approx(1.0)
     assert [result.recall_hit for result in report.results] == [True, False, None]
+    assert report.precision_at_5 == pytest.approx(0.1666)
+    assert report.results[0].precision_at_5 == pytest.approx(0.3333)
+    assert report.results[1].precision_at_5 == pytest.approx(0.0)
+    assert report.results[2].precision_at_5 is None
 
 
 def test_report_serializes_to_dict() -> None:
@@ -98,6 +102,7 @@ def test_report_serializes_to_dict() -> None:
     assert payload["total"] == 1
     assert payload["recall_at_5"] == 1.0
     assert payload["results"][0]["question_id"] == "q1"
+    assert payload["precision_at_5"] == pytest.approx(0.3333)
 
 
 def test_metrics_are_none_without_denominator() -> None:
@@ -105,6 +110,7 @@ def test_metrics_are_none_without_denominator() -> None:
 
     assert report.recall_at_5 is None
     assert report.citation_validity is None
+    assert report.precision_at_5 is None
     assert report.insufficient_accuracy == 1.0
 
 

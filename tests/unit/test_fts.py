@@ -60,3 +60,18 @@ def test_empty_query_returns_nothing(index: FtsIndex) -> None:
     index.upsert(1, "任意内容")
 
     assert index.search("   ", top_k=5) == []
+
+
+def test_maps_code_symbols_to_searchable_tokens(index: FtsIndex) -> None:
+    index.upsert(1, "还有一种除法是 `//`，称为地板除，两个整数的除法仍然是整数")
+    index.upsert(2, "普通除法使用 `/` 得到浮点数")
+
+    assert index.search("//", top_k=5) == [1]
+    assert index.search("/", top_k=5) == [2]
+
+
+def test_symbols_inside_urls_are_not_indexed_as_operators(index: FtsIndex) -> None:
+    index.upsert(1, "参考 https://example.com/a 的说明")
+
+    assert index.search("//", top_k=5) == []
+    assert index.search("/", top_k=5) == []

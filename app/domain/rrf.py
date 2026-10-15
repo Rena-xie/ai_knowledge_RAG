@@ -23,11 +23,13 @@ def rrf_fuse(
     *,
     k: int = DEFAULT_RRF_K,
     top_k: int | None = None,
+    head_reserve: int = 0,
 ) -> list[FusedHit]:
     """按 RRF 融合两路召回结果。
 
     同一 child_id 在两路出现时分数累加；并列时先比较单路最佳排名，
-    再按 child_id 升序，保证结果稳定。
+    再按 child_id 升序，保证结果稳定。``head_reserve`` 让每一路召回的前
+    N 名直接进入结果头部（见《项目介绍.md》7.2 与 ADR-012）。
     """
 
     if k <= 0:
@@ -50,6 +52,16 @@ def rrf_fuse(
         for child_id, score in scores.items()
     ]
     hits.sort(key=lambda hit: (-hit.score, hit.best_rank, hit.child_id))
+    if head_reserve > 0:
+        by_id = {hit.child_id: hit for hit in hits}
+        reserved: list[int] = []
+        for ids in (dense_ids, bm25_ids):
+            for child_id in ids[:head_reserve]:
+                if child_id in by_id and child_id not in reserved:
+                    reserved.append(child_id)
+        head = [by_id[child_id] for child_id in reserved]
+        tail = [hit for hit in hits if hit.child_id not in set(reserved)]
+        hits = head + tail
     if top_k is not None:
         return hits[:top_k]
     return hits

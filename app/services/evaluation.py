@@ -36,6 +36,7 @@ class QuestionResult:
     citations_validated: bool
     citation_count: int
     max_similarity: float = 0.0
+    precision_at_5: float | None = None
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,7 @@ class EvalReport:
     recall_at_5: float | None
     citation_validity: float | None
     insufficient_accuracy: float | None
+    precision_at_5: float | None
     results: tuple[QuestionResult, ...]
 
     def as_dict(self) -> dict[str, Any]:
@@ -54,6 +56,7 @@ class EvalReport:
             "recall_at_5": self.recall_at_5,
             "citation_validity": self.citation_validity,
             "insufficient_accuracy": self.insufficient_accuracy,
+            "precision_at_5": self.precision_at_5,
             "results": [
                 {
                     "question_id": result.question_id,
@@ -64,6 +67,7 @@ class EvalReport:
                     "citations_validated": result.citations_validated,
                     "citation_count": result.citation_count,
                     "max_similarity": result.max_similarity,
+                    "precision_at_5": result.precision_at_5,
                 }
                 for result in self.results
             ],
@@ -90,8 +94,13 @@ class EvaluationRunner:
             answer = self._qa_service.answer(item.question, retrieval=retrieval)
             top_k = tuple(retrieval.fused_ids[:RECALL_K])
             recall_hit: bool | None = None
+            precision: float | None = None
             if item.relevant_child_ids:
                 recall_hit = bool(set(top_k) & set(item.relevant_child_ids))
+                if top_k:
+                    precision = round(
+                        len(set(top_k) & set(item.relevant_child_ids)) / len(top_k), 4
+                    )
             results.append(
                 QuestionResult(
                     question_id=item.id,
@@ -102,6 +111,7 @@ class EvaluationRunner:
                     citations_validated=answer.citations_validated,
                     citation_count=len(answer.citations),
                     max_similarity=retrieval.max_similarity,
+                    precision_at_5=precision,
                 )
             )
         return self._summarize(questions, results)
@@ -128,11 +138,19 @@ class EvaluationRunner:
             for result in unlabeled
             if result.answer_type == "insufficient_evidence"
         ]
+        precisions = [
+            result.precision_at_5
+            for result in labeled
+            if result.precision_at_5 is not None
+        ]
         return EvalReport(
             total=len(results),
             recall_at_5=_ratio(len(recall_hits), len(labeled)),
             citation_validity=_ratio(len(validated), len(answered)),
             insufficient_accuracy=_ratio(len(insufficient), len(unlabeled)),
+            precision_at_5=(
+                round(sum(precisions) / len(precisions), 4) if precisions else None
+            ),
             results=tuple(results),
         )
 
