@@ -1,6 +1,10 @@
-"""配置默认值与入库预算规则（见《项目介绍.md》10.2、10.4）。"""
+"""配置默认值、版本口径与入库预算规则（见《项目介绍.md》10.1、10.2、10.4）。"""
+
+import tomllib
+from pathlib import Path
 
 from app.core.settings import DEFAULT_LOG_FILE, Settings
+from app.main import create_app
 
 
 def build_settings() -> Settings:
@@ -46,3 +50,16 @@ def test_ingest_budget_covers_stage_timeouts() -> None:
 
     assert settings.ingest_timeout_s == 60
     assert fetch_worst_case + embed_worst_case < settings.ingest_timeout_s
+
+
+def test_version_and_python_baseline_are_consistent() -> None:
+    """版本号写法与 Python 基线在配置、文档与接口之间保持一致（见 10.1）。"""
+
+    root = Path(__file__).resolve().parents[2]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+
+    assert project["project"]["version"] == "v1"
+    assert create_app().version == project["project"]["version"]
+    assert project["project"]["requires-python"] == ">=3.13"
+    assert project["tool"]["ruff"]["target-version"] == "py313"
+    assert (root / ".python-version").read_text(encoding="utf-8").strip() == "3.13"

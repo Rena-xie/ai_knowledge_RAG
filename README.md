@@ -6,7 +6,7 @@
 
 ## 环境要求
 
-- Windows 本地单机；Python 3.11+（本仓库用 `.python-version` 锁定 3.13）
+- Windows 本地单机；Python 3.13（由 `.python-version` 锁定）
 - [uv](https://docs.astral.sh/uv/) 管理虚拟环境与依赖
 
 ## 快速开始
