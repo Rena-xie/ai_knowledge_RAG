@@ -11,6 +11,7 @@ from sqlalchemy import Engine, select
 from app.cli.maintenance import run_backup, run_consistency
 from app.core.settings import Settings
 from app.infra.db import (
+    SCHEMA_VERSION,
     ChildChunk,
     IndexMeta,
     KnowledgeSource,
@@ -24,6 +25,19 @@ from app.infra.vector import VectorIndex
 from app.services.maintenance import MaintenanceService
 
 NOW = "2026-10-09T00:00:00Z"
+
+
+def test_reindex_preserves_schema_version(env: dict[str, object]) -> None:
+    """重建索引只更新模型与切块版本，不覆盖 schema_version（见 5.1）。"""
+
+    service: MaintenanceService = env["service"]
+    session_factory = env["session_factory"]
+
+    service.reindex_all()
+
+    with session_factory() as session:
+        assert session.get(IndexMeta, "schema_version").value == SCHEMA_VERSION
+        assert session.get(IndexMeta, "chunker_version") is not None
 
 
 class FakeEmbedder:

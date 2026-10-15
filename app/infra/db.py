@@ -16,6 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 DEFAULT_BUSY_TIMEOUT_MS = 5000
+SCHEMA_VERSION = "1"
 
 
 class Base(DeclarativeBase):
@@ -122,6 +123,10 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 
 def init_db(engine: Engine) -> None:
-    """按 ORM 模型创建全部关系表。"""
+    """按 ORM 模型创建全部关系表，并写入 schema_version。"""
 
     Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        if session.get(IndexMeta, "schema_version") is None:
+            session.add(IndexMeta(key="schema_version", value=SCHEMA_VERSION))
+            session.commit()

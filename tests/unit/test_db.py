@@ -8,6 +8,7 @@ from sqlalchemy import Engine, inspect, text
 from sqlalchemy.exc import IntegrityError
 
 from app.infra.db import (
+    SCHEMA_VERSION,
     ChildChunk,
     IndexMeta,
     KnowledgeSource,
@@ -142,8 +143,27 @@ def test_round_trip_source_with_chunks(engine: Engine) -> None:
 def test_index_meta_round_trip(engine: Engine) -> None:
     session_factory = create_session_factory(engine)
     with session_factory() as session:
-        session.add(IndexMeta(key="schema_version", value="1"))
+        session.add(IndexMeta(key="chunker_version", value="v1"))
         session.commit()
 
     with session_factory() as session:
-        assert session.get(IndexMeta, "schema_version").value == "1"
+        assert session.get(IndexMeta, "chunker_version").value == "v1"
+
+
+def test_init_db_writes_schema_version(engine: Engine) -> None:
+    session_factory = create_session_factory(engine)
+
+    with session_factory() as session:
+        assert session.get(IndexMeta, "schema_version").value == SCHEMA_VERSION
+
+
+def test_init_db_keeps_existing_schema_version(engine: Engine) -> None:
+    session_factory = create_session_factory(engine)
+    with session_factory() as session:
+        session.get(IndexMeta, "schema_version").value = "0"
+        session.commit()
+
+    init_db(engine)
+
+    with session_factory() as session:
+        assert session.get(IndexMeta, "schema_version").value == "0"
