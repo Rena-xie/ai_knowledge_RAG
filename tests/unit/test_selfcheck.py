@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from app.core.selfcheck import SelfCheckError, check_fts5_available, ensure_writable_dir
+from app.core.selfcheck import (
+    SelfCheckError,
+    check_fts5_available,
+    ensure_ascii_path,
+    ensure_writable_dir,
+)
 
 
 def test_fts5_is_available(tmp_path: Path) -> None:
@@ -25,3 +30,12 @@ def test_writable_dir_rejects_path_under_file(tmp_path: Path) -> None:
 
     with pytest.raises(SelfCheckError):
         ensure_writable_dir(blocker / "chroma")
+
+
+def test_ascii_path_is_accepted(tmp_path: Path) -> None:
+    ensure_ascii_path(tmp_path / "chroma")
+
+
+def test_non_ascii_path_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(SelfCheckError):
+        ensure_ascii_path(tmp_path / "知识库" / "chroma")

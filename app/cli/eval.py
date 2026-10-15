@@ -19,7 +19,13 @@ from app.services.evaluation import EvaluationRunner, load_questions
 DEFAULT_CORPUS = Path("tests/evals/corpus.json")
 DEFAULT_QUESTIONS = Path("tests/evals/questions.json")
 DEFAULT_OUTPUT_DIR = Path("tests/evals/results")
-DEFAULT_WORKDIR = Path("data/eval-kb")
+DEFAULT_WORKDIR_NAME = "eval-kb"
+
+
+def default_workdir() -> Path:
+    """评测库默认位置：与 CHROMA_PATH 同级，保证路径为纯 ASCII（见 10.6）。"""
+
+    return get_settings().chroma_path.parent / DEFAULT_WORKDIR_NAME
 
 
 def load_corpus(path: Path) -> list[str]:
@@ -118,8 +124,8 @@ def run_eval(
     parser.add_argument(
         "--workdir",
         type=Path,
-        default=DEFAULT_WORKDIR,
-        help="评测知识库目录；已完成的来源会跳过，便于中断后续跑",
+        default=None,
+        help="评测知识库目录；默认取 CHROMA_PATH 同级的 eval-kb，已完成的来源会跳过",
     )
     parser.add_argument("--output", type=Path, default=None, help="结果输出路径")
     parser.add_argument(
@@ -140,7 +146,8 @@ def run_eval(
                 container = Container(get_settings())
             else:
                 container = build_corpus_container(
-                    load_corpus(args.corpus), args.workdir
+                    load_corpus(args.corpus),
+                    args.workdir if args.workdir is not None else default_workdir(),
                 )
         if args.dump_children is not None:
             if container is None:

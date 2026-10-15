@@ -24,6 +24,23 @@ def ensure_writable_dir(path: Path) -> None:
         raise SelfCheckError(f"目录不可写: {path}: {exc}") from exc
 
 
+def ensure_ascii_path(path: Path) -> None:
+    """确保路径解析后为纯 ASCII（见《项目介绍.md》10.6 第 5 条）。
+
+    chromadb 在含非 ASCII 字符的路径下可以写入，但重启后无法读取 HNSW
+    索引（报 `Error loading hnsw index`），因此在启动阶段直接拒绝。
+    """
+
+    resolved = Path(path).resolve()
+    try:
+        str(resolved).encode("ascii")
+    except UnicodeEncodeError as exc:
+        raise SelfCheckError(
+            "Chroma 持久化目录必须解析为纯 ASCII 路径，"
+            f"当前路径包含非 ASCII 字符: {resolved}"
+        ) from exc
+
+
 def check_fts5_available(db_path: Path) -> None:
     """确保 SQLite 可用且编译启用了 FTS5。"""
 
@@ -47,4 +64,5 @@ def run_startup_checks(settings: Settings) -> None:
 
     ensure_writable_dir(settings.sqlite_path.parent)
     check_fts5_available(settings.sqlite_path)
+    ensure_ascii_path(settings.chroma_path)
     ensure_writable_dir(settings.chroma_path)

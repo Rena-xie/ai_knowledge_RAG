@@ -6,7 +6,7 @@
 - `questions.json`：每道题记录问题、类别（专有名词 / 语义改写 / 代码查询 / 跨章节 / 无答案）、标注的相关 `child_id` 集合。
 - `results/`：每次运行的结果 JSON，含 Recall@5、引用有效率、无答案识别率与每题最高 Dense 相似度（用于校准 `MIN_DENSE_SIMILARITY`）。
 
-运行方式（评测库落在 `data/eval-kb/`，可重复运行续传）：
+运行方式（评测库默认落在 `CHROMA_PATH` 同级的 `eval-kb/`，可重复运行续传）：
 
 ```powershell
 uv run python scripts/run_eval.py                       # 入库语料并评测
