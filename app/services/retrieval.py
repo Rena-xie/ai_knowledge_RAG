@@ -41,6 +41,7 @@ class RetrievalResult:
     dense_ids: tuple[int, ...]
     bm25_ids: tuple[int, ...]
     fused_ids: tuple[int, ...]
+    max_similarity: float = 0.0
 
 
 class RetrievalService:
@@ -63,8 +64,12 @@ class RetrievalService:
 
     def search(self, question: str) -> RetrievalResult:
         embedding = self._embedder.embed([question])[0]
-        dense_ids = tuple(
-            self._vector_index.query(embedding, top_k=self._settings.dense_top_k)
+        dense_hits = self._vector_index.query(
+            embedding, top_k=self._settings.dense_top_k
+        )
+        dense_ids = tuple(hit.child_id for hit in dense_hits)
+        max_similarity = max(
+            (hit.similarity for hit in dense_hits), default=0.0
         )
         bm25_ids = tuple(
             self._fts_index.search(question, top_k=self._settings.bm25_top_k)
@@ -75,15 +80,18 @@ class RetrievalService:
             k=self._settings.rrf_k,
             top_k=self._settings.final_top_k,
         )
-        if not fused:
-            return RetrievalResult((), dense_ids, bm25_ids, ())
+        fused_ids = tuple(hit.child_id for hit in fused)
+        if not fused or max_similarity < self._settings.min_dense_similarity:
+            # 相关性门槛：库内没有足够相关的证据时按证据不足处理（见 7.3 第 4 点）
+            return RetrievalResult((), dense_ids, bm25_ids, fused_ids, max_similarity)
         rows = self._load_rows([hit.child_id for hit in fused])
         evidences = self._build_evidence(fused, rows)
         return RetrievalResult(
             evidences=tuple(evidences),
             dense_ids=dense_ids,
             bm25_ids=bm25_ids,
-            fused_ids=tuple(hit.child_id for hit in fused),
+            fused_ids=fused_ids,
+            max_similarity=max_similarity,
         )
 
     def _load_rows(self, child_ids: Sequence[int]) -> dict[int, Row]:

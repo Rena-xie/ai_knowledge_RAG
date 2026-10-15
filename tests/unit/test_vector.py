@@ -25,7 +25,10 @@ def test_query_returns_nearest_child(index: VectorIndex) -> None:
         metadatas=[{"source_id": 10}, {"source_id": 10}],
     )
 
-    assert index.query([0.9, 0.1, 0.0], top_k=1) == [1]
+    hits = index.query([0.9, 0.1, 0.0], top_k=1)
+
+    assert [hit.child_id for hit in hits] == [1]
+    assert hits[0].similarity == pytest.approx(0.9938, abs=0.01)
 
 
 def test_upsert_overwrites_same_child(index: VectorIndex) -> None:
@@ -33,7 +36,7 @@ def test_upsert_overwrites_same_child(index: VectorIndex) -> None:
     index.upsert([1], [[0.0, 1.0, 0.0]], [{"source_id": 10}])
 
     assert index.count() == 1
-    assert index.query([0.0, 1.0, 0.0], top_k=1) == [1]
+    assert [hit.child_id for hit in index.query([0.0, 1.0, 0.0], top_k=1)] == [1]
 
 
 def test_delete_by_source_removes_only_that_source(index: VectorIndex) -> None:
@@ -46,7 +49,7 @@ def test_delete_by_source_removes_only_that_source(index: VectorIndex) -> None:
     index.delete_by_source(10)
 
     assert index.count() == 1
-    assert index.query([1.0, 0.0, 0.0], top_k=1) == [2]
+    assert [hit.child_id for hit in index.query([1.0, 0.0, 0.0], top_k=1)] == [2]
 
 
 def test_close_releases_files(tmp_path: Path) -> None:

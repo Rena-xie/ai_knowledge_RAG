@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     bm25_top_k: int = 20
     rrf_k: int = 60
     final_top_k: int = 8
+    min_dense_similarity: float = 0.4
 
     # 切块与上下文
     parent_max_chars: int = 3000

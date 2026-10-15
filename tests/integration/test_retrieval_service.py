@@ -138,6 +138,20 @@ def test_search_returns_evidence_with_parent_context(
     assert top.score > 0
     assert child_ids[0] in result.dense_ids
     assert child_ids[0] in result.bm25_ids
+    assert result.max_similarity == pytest.approx(1.0, abs=0.01)
+
+
+def test_low_similarity_gate_returns_no_evidence(env: dict[str, object]) -> None:
+    """最高 Dense 相似度低于门槛时按证据不足处理，不产出上下文。"""
+
+    seed_source(env, embeddings=([0.0, 1.0, 0.0], [0.0, 0.5, 0.5]))
+    service = build_service(env)
+
+    result = service.search("BM25")
+
+    assert result.evidences == ()
+    assert result.fused_ids
+    assert result.max_similarity < 0.4
 
 
 def test_search_deduplicates_same_parent(env: dict[str, object]) -> None:

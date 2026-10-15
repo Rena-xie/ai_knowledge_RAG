@@ -64,6 +64,7 @@ class SearchResponse(BaseModel):
     bm25_ids: list[int]
     fused_ids: list[int]
     evidences: list[EvidenceResponse]
+    max_similarity: float
     elapsed_ms: float
 
 

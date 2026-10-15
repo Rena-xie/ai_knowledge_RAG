@@ -23,6 +23,7 @@ def search(payload: QuestionRequest, request: Request) -> SearchResponse:
         dense_ids=list(result.dense_ids),
         bm25_ids=list(result.bm25_ids),
         fused_ids=list(result.fused_ids),
+        max_similarity=result.max_similarity,
         evidences=[
             EvidenceResponse(
                 source_id=evidence.source_id,

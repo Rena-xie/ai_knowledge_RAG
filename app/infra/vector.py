@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import chromadb
@@ -10,6 +11,14 @@ from chromadb.config import Settings as ChromaSettings
 
 COLLECTION_NAME = "child_chunks"
 COSINE_SPACE = "cosine"
+
+
+@dataclass(frozen=True)
+class VectorHit:
+    """向量召回命中：`child_id` 与余弦相似度（`1 - cosine 距离`）。"""
+
+    child_id: int
+    similarity: float
 
 
 class VectorIndex:
@@ -60,14 +69,18 @@ class VectorIndex:
         result = self._collection.get(include=[])
         return [int(value) for value in result.get("ids", [])]
 
-    def query(self, embedding: Sequence[float], *, top_k: int) -> list[int]:
+    def query(self, embedding: Sequence[float], *, top_k: int) -> list[VectorHit]:
         if self._collection.count() == 0:
             return []
         result = self._collection.query(
             query_embeddings=[list(embedding)], n_results=top_k
         )
         ids = result.get("ids") or [[]]
-        return [int(value) for value in ids[0]]
+        distances = result.get("distances") or [[]]
+        return [
+            VectorHit(child_id=int(child_id), similarity=1.0 - float(distance))
+            for child_id, distance in zip(ids[0], distances[0], strict=False)
+        ]
 
     def close(self) -> None:
         """释放底层客户端，确保 Windows 下临时数据目录可被删除。"""
