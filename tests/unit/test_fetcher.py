@@ -168,6 +168,49 @@ def test_server_error_is_retried_then_succeeds() -> None:
     assert len(calls) == 2
 
 
+def test_prefers_ipv4_when_host_resolves_to_multiple_addresses() -> None:
+    captured: list[object] = []
+
+    def resolver(host: str) -> list[str]:
+        return ["2606:4700:4700::1111", "93.184.216.34"]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request.extensions.get(PINNED_IP_EXTENSION))
+        return httpx.Response(
+            200, headers={"content-type": "text/html"}, text="<p>ok</p>"
+        )
+
+    result = make_fetcher(handler, resolver=resolver).fetch(
+        "https://example.test/page"
+    )
+
+    assert result.html == "<p>ok</p>"
+    assert captured == ["93.184.216.34"]
+
+
+def test_tries_next_address_when_first_one_fails() -> None:
+    attempts: list[object] = []
+
+    def resolver(host: str) -> list[str]:
+        return ["93.184.216.34", "93.184.216.35"]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        address = request.extensions.get(PINNED_IP_EXTENSION)
+        attempts.append(address)
+        if address == "93.184.216.34":
+            raise httpx.ConnectError("连接失败")
+        return httpx.Response(
+            200, headers={"content-type": "text/html"}, text="<p>ok</p>"
+        )
+
+    result = make_fetcher(handler, resolver=resolver).fetch(
+        "https://example.test/page"
+    )
+
+    assert result.html == "<p>ok</p>"
+    assert attempts == ["93.184.216.34", "93.184.216.35"]
+
+
 def test_pins_every_hop_to_validated_ip() -> None:
     captured: list[dict[str, object]] = []
 

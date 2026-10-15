@@ -35,7 +35,9 @@ class FakeFetcher:
 
 
 class FakeEmbedder:
-    def embed(self, texts: Sequence[str]) -> list[list[float]]:
+    def embed(
+        self, texts: Sequence[str], *, budget_s: float | None = None
+    ) -> list[list[float]]:
         return [[1.0, 0.0, 0.0] for _ in texts]
 
     def close(self) -> None:

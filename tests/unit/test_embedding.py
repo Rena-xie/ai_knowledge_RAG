@@ -113,3 +113,32 @@ def test_timeout_raises_embedding_error() -> None:
         make_client(handler).embed(["甲"])
 
     assert excinfo.value.code == ErrorCode.EMBEDDING_FAILED
+
+
+def test_budget_exhausted_before_first_batch() -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return vector_response([(0, [0.0])])
+
+    with pytest.raises(EmbeddingError) as excinfo:
+        make_client(handler).embed(["甲"], budget_s=0)
+
+    assert excinfo.value.code == ErrorCode.INGEST_TIMEOUT
+    assert calls == []
+
+
+def test_request_timeout_is_clamped_to_remaining_budget() -> None:
+    timeouts: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        timeout = request.extensions.get("timeout")
+        assert isinstance(timeout, dict)
+        timeouts.append(timeout["read"])
+        return vector_response([(0, [0.1])])
+
+    make_client(handler, timeout_s=5).embed(["甲"], budget_s=0.5)
+
+    assert timeouts
+    assert 0 < timeouts[0] <= 0.5

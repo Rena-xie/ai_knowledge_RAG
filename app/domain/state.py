@@ -14,7 +14,7 @@ class SourceStatus(StrEnum):
 
 
 ALLOWED_TRANSITIONS: dict[SourceStatus, frozenset[SourceStatus]] = {
-    SourceStatus.PENDING: frozenset({SourceStatus.PROCESSING}),
+    SourceStatus.PENDING: frozenset({SourceStatus.PROCESSING, SourceStatus.FAILED}),
     SourceStatus.PROCESSING: frozenset({SourceStatus.COMPLETED, SourceStatus.FAILED}),
     SourceStatus.COMPLETED: frozenset({SourceStatus.DELETING}),
     SourceStatus.FAILED: frozenset({SourceStatus.PROCESSING}),

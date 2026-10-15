@@ -13,6 +13,7 @@ def test_mapping_matches_design_doc() -> None:
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.NOT_FOUND] == 404
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.INGEST_BUSY] == 503
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.INGEST_TIMEOUT] == 504
+    assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.INGEST_INTERRUPTED] == 500
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.SSRF_BLOCKED] == 403
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.FETCH_TOO_LARGE] == 413
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.FETCH_UNSUPPORTED_CONTENT] == 415

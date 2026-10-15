@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.clock import utc_now_iso
@@ -52,16 +53,9 @@ class SourceService:
         except InvalidUrlError as error:
             raise AppError(ErrorCode.INVALID_REQUEST, str(error)) from error
         with self._session_factory() as session:
-            existing = session.scalar(
-                select(KnowledgeSource).where(
-                    KnowledgeSource.canonical_url == canonical
-                )
-            )
+            existing = self._find_by_canonical(session, canonical)
             if existing is not None:
-                return SubmitResult(
-                    source=existing,
-                    triggered=existing.status == SourceStatus.FAILED.value,
-                )
+                return self._existing_result(existing)
             now = self._clock()
             source = KnowledgeSource(
                 url=url,
@@ -71,8 +65,30 @@ class SourceService:
                 updated_at=now,
             )
             session.add(source)
-            session.commit()
+            try:
+                session.commit()
+            except IntegrityError:
+                # 并发提交同一 URL：canonical_url 唯一约束兜底，回查既有记录后
+                # 按其状态返回，不向调用方抛出 5xx（见 5.3 第 3 点）。
+                session.rollback()
+                existing = self._find_by_canonical(session, canonical)
+                if existing is None:
+                    raise
+                return self._existing_result(existing)
             return SubmitResult(source=source, triggered=True)
+
+    @staticmethod
+    def _find_by_canonical(session: Session, canonical: str) -> KnowledgeSource | None:
+        return session.scalar(
+            select(KnowledgeSource).where(KnowledgeSource.canonical_url == canonical)
+        )
+
+    @staticmethod
+    def _existing_result(source: KnowledgeSource) -> SubmitResult:
+        return SubmitResult(
+            source=source,
+            triggered=source.status == SourceStatus.FAILED.value,
+        )
 
     def get(self, source_id: int) -> KnowledgeSource | None:
         with self._session_factory() as session:

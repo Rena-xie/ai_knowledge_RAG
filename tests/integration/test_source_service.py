@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import Engine, func, select
+from sqlalchemy.orm import Session
 
 from app.core.errors import AppError, ErrorCode
 from app.infra.db import (
@@ -149,6 +150,32 @@ def test_duplicate_failed_source_is_retriggered(env: dict[str, object]) -> None:
 
     assert result.triggered is True
     assert result.source.status == "failed"
+
+
+def test_get_or_create_recovers_when_concurrent_insert_wins(
+    env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """并发提交同一新 URL：唯一约束冲突时回查既有记录，不抛异常。"""
+
+    service: SourceService = env["service"]
+    created = service.get_or_create("https://example.com/a")
+
+    original = Session.scalar
+    calls = {"count": 0}
+
+    def flaky_scalar(self, statement, *args, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return None  # 模拟并发窗口：本次查不到，插入时记录已存在
+        return original(self, statement, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "scalar", flaky_scalar)
+
+    duplicate = service.get_or_create("https://example.com/a")
+
+    assert duplicate.source.id == created.source.id
+    assert duplicate.triggered is False
+    assert count_rows(env, KnowledgeSource) == 1
 
 
 def test_list_sources_paginates(env: dict[str, object]) -> None:

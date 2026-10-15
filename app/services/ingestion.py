@@ -81,11 +81,57 @@ class IngestionService:
                 child_count=self._child_count(source_id),
             )
         if not self._lock.acquire(timeout=self._settings.ingest_lock_timeout_s):
+            self._mark_ingest_busy(source_id)
             raise AppError(ErrorCode.INGEST_BUSY, "已有入库任务在执行")
         try:
             return self._run_pipeline(source_id, url)
         finally:
             self._lock.release()
+
+    def recover_interrupted(self) -> tuple[int, ...]:
+        """启动时回收中断的入库记录（见《项目介绍.md》10.6 第 4 条）。
+
+        单进程约束下启动时不存在正在执行的入库任务，遗留的 `pending` 与
+        `processing` 记录已无人处理，标记为 `failed` 后可通过重新提交重试。
+        """
+
+        with self._session_factory() as session:
+            source_ids = list(
+                session.scalars(
+                    select(KnowledgeSource.id).where(
+                        KnowledgeSource.status.in_(
+                            [
+                                SourceStatus.PENDING.value,
+                                SourceStatus.PROCESSING.value,
+                            ]
+                        )
+                    )
+                ).all()
+            )
+        for source_id in source_ids:
+            self._source_service.mark_status(
+                source_id,
+                SourceStatus.FAILED,
+                error_code=ErrorCode.INGEST_INTERRUPTED,
+                error_message="服务重启导致入库中断，重新提交同一 URL 可重试",
+            )
+        return tuple(source_ids)
+
+    def _mark_ingest_busy(self, source_id: int) -> None:
+        """抢锁失败时回收本次记录，避免留下无人处理的 `pending` 来源。"""
+
+        try:
+            self._source_service.mark_status(
+                source_id,
+                SourceStatus.FAILED,
+                error_code=ErrorCode.INGEST_BUSY,
+                error_message="已有入库任务在执行",
+            )
+        except Exception:
+            logger.warning(
+                "标记入库忙状态失败",
+                extra={"source_id": source_id, "stage": "ingest_lock"},
+            )
 
     def _run_pipeline(self, source_id: int, url: str) -> IngestResult:
         deadline = time.monotonic() + self._settings.ingest_timeout_s
@@ -106,7 +152,10 @@ class IngestionService:
                 raise AppError(ErrorCode.PARSE_EMPTY_CONTENT, "切块结果为空")
             self._check_deadline(deadline)
             child_ids, embedding_texts = self._persist_chunks(source_id, parents)
-            embeddings = self._embedder.embed(embedding_texts)
+            self._check_deadline(deadline)
+            embeddings = self._embedder.embed(
+                embedding_texts, budget_s=deadline - time.monotonic()
+            )
             self._check_deadline(deadline)
             for child_id, text in zip(child_ids, embedding_texts, strict=True):
                 self._fts_index.upsert(child_id, text)

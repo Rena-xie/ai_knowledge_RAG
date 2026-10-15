@@ -10,6 +10,7 @@ from app.core.errors import AppError, ErrorCode
 from app.core.settings import Settings
 from app.infra.db import (
     ChildChunk,
+    KnowledgeSource,
     ParentChunk,
     create_db_engine,
     create_session_factory,
@@ -21,6 +22,8 @@ from app.infra.fts import FtsIndex
 from app.infra.vector import VectorIndex
 from app.services.ingestion import IngestionService
 from app.services.source import SourceService
+
+NOW = "2026-10-09T00:00:00Z"
 
 ARTICLE = """
 <html><head><title>BM25 指南</title></head><body><article>
@@ -61,9 +64,13 @@ class FakeEmbedder:
         self.fail = fail
         self.calls = 0
         self.texts: list[str] = []
+        self.budgets: list[float | None] = []
 
-    def embed(self, texts: Sequence[str]) -> list[list[float]]:
+    def embed(
+        self, texts: Sequence[str], *, budget_s: float | None = None
+    ) -> list[list[float]]:
         self.calls += 1
+        self.budgets.append(budget_s)
         if self.fail:
             raise EmbeddingError("embedding 失败")
         self.texts = list(texts)
@@ -231,6 +238,79 @@ def test_ingest_busy_when_lock_is_held(env: dict[str, object]) -> None:
         service._lock.release()  # noqa: SLF001
 
     assert excinfo.value.code == ErrorCode.INGEST_BUSY
+
+
+def test_lock_failure_marks_source_failed_for_retry(
+    env: dict[str, object],
+) -> None:
+    """抢锁失败不留 pending 悬挂记录：标记 failed，重新提交可完成入库。"""
+
+    service = build_service(env, ingest_lock_timeout_s=0)
+    assert service._lock.acquire(blocking=False)  # noqa: SLF001 - 模拟并发入库
+    try:
+        with pytest.raises(AppError) as excinfo:
+            service.ingest("https://example.com/a")
+    finally:
+        service._lock.release()  # noqa: SLF001
+
+    assert excinfo.value.code == ErrorCode.INGEST_BUSY
+    blocked = env["source_service"].get(1)
+    assert blocked.status == "failed"
+    assert blocked.error_code == ErrorCode.INGEST_BUSY.value
+
+    retried = build_service(env).ingest("https://example.com/a")
+
+    assert retried.triggered is True
+    assert retried.status == "completed"
+
+
+def test_recover_interrupted_sources_marks_them_failed(
+    env: dict[str, object],
+) -> None:
+    """启动恢复：遗留的 pending/processing 记录标记 failed 后可重新提交。"""
+
+    session_factory = env["session_factory"]
+    with session_factory() as session:
+        for status in ("pending", "processing", "completed"):
+            session.add(
+                KnowledgeSource(
+                    url=f"https://example.com/{status}",
+                    canonical_url=f"https://example.com/{status}",
+                    status=status,
+                    created_at=NOW,
+                    updated_at=NOW,
+                )
+            )
+        session.commit()
+
+    recovered = build_service(env).recover_interrupted()
+
+    assert len(recovered) == 2
+    source_service = env["source_service"]
+    for source_id in (1, 2):
+        source = source_service.get(source_id)
+        assert source.status == "failed"
+        assert source.error_code == ErrorCode.INGEST_INTERRUPTED.value
+    assert source_service.get(3).status == "completed"
+
+    retried = build_service(env).ingest("https://example.com/pending")
+
+    assert retried.triggered is True
+    assert retried.status == "completed"
+
+
+def test_ingest_passes_remaining_budget_to_embedder(
+    env: dict[str, object],
+) -> None:
+    embedder = FakeEmbedder()
+    service = build_service(env, embedder=embedder, ingest_timeout_s=30)
+
+    service.ingest("https://example.com/a")
+
+    assert embedder.budgets
+    budget = embedder.budgets[0]
+    assert budget is not None
+    assert 0 < budget <= 30
 
 
 def test_ingest_timeout_is_enforced(env: dict[str, object]) -> None:

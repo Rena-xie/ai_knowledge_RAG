@@ -14,6 +14,7 @@ from app.domain.state import (
 
 def test_documented_transitions_are_allowed() -> None:
     assert can_transition(SourceStatus.PENDING, SourceStatus.PROCESSING)
+    assert can_transition(SourceStatus.PENDING, SourceStatus.FAILED)
     assert can_transition(SourceStatus.PROCESSING, SourceStatus.COMPLETED)
     assert can_transition(SourceStatus.PROCESSING, SourceStatus.FAILED)
     assert can_transition(SourceStatus.FAILED, SourceStatus.PROCESSING)

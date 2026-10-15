@@ -15,6 +15,7 @@ from app.api.middleware import RequestContextMiddleware
 from app.api.query import router as query_router
 from app.api.search import router as search_router
 from app.api.sources import router as sources_router
+from app.core.errors import ErrorCode
 from app.core.logging import configure_logging
 from app.core.selfcheck import run_startup_checks
 from app.core.settings import get_settings
@@ -32,6 +33,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         container = Container(settings)
     app.state.settings = settings
     app.state.container = container
+    recovered = container.ingestion_service.recover_interrupted()
+    if recovered:
+        logger.warning(
+            "回收中断的入库记录: %s",
+            list(recovered),
+            extra={
+                "stage": "startup",
+                "error_code": ErrorCode.INGEST_INTERRUPTED.value,
+            },
+        )
     logger.info("应用启动完成", extra={"stage": "startup"})
     yield
     container.close()
