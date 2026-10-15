@@ -8,6 +8,11 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_FETCH_USER_AGENT = (
+    "ai-knowledge-base/v1 (+https://github.com/Rena-xie/ai_knowledge_RAG)"
+)
+DEFAULT_ROBOTS_CACHE_TTL_S = 300.0
+
 
 class Settings(BaseSettings):
     """从 `.env` 与环境变量加载配置。"""
@@ -51,6 +56,8 @@ class Settings(BaseSettings):
     fetch_max_bytes: int = 5242880
     fetch_max_redirects: int = 5
     polite_delay_s: float = 1.0
+    fetch_user_agent: str = DEFAULT_FETCH_USER_AGENT
+    robots_cache_ttl_s: float = DEFAULT_ROBOTS_CACHE_TTL_S
 
     # 外部调用
     embed_timeout_s: int = 12

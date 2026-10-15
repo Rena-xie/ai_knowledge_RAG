@@ -41,6 +41,9 @@ class Container:
                 max_bytes=settings.fetch_max_bytes,
                 max_redirects=settings.fetch_max_redirects,
                 max_retries=settings.fetch_max_retries,
+                user_agent=settings.fetch_user_agent,
+                polite_delay_s=settings.polite_delay_s,
+                robots_cache_ttl_s=settings.robots_cache_ttl_s,
             )
         )
         self.embedder = (

@@ -55,6 +55,7 @@ def build_corpus_container(
         max_bytes=settings.fetch_max_bytes,
         max_redirects=settings.fetch_max_redirects,
         max_retries=settings.fetch_max_retries,
+        polite_delay_s=0,  # 本地夹具站点：无需限速，避免拖慢评测
         validator=lambda _address: True,  # 本地夹具语料需要放行回环地址
     )
     container = Container(settings, fetcher=fetcher)

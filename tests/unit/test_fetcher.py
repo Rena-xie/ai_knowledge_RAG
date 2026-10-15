@@ -139,6 +139,8 @@ def test_timeout_is_retried_then_reported() -> None:
     calls: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
         calls.append(str(request.url))
         raise httpx.ConnectTimeout("boom")
 
@@ -175,6 +177,8 @@ def test_prefers_ipv4_when_host_resolves_to_multiple_addresses() -> None:
         return ["2606:4700:4700::1111", "93.184.216.34"]
 
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
         captured.append(request.extensions.get(PINNED_IP_EXTENSION))
         return httpx.Response(
             200, headers={"content-type": "text/html"}, text="<p>ok</p>"
@@ -195,6 +199,8 @@ def test_tries_next_address_when_first_one_fails() -> None:
         return ["93.184.216.34", "93.184.216.35"]
 
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
         address = request.extensions.get(PINNED_IP_EXTENSION)
         attempts.append(address)
         if address == "93.184.216.34":
@@ -221,6 +227,8 @@ def test_pins_every_hop_to_validated_ip() -> None:
         }[host]
 
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
         captured.append(
             {
                 "url": str(request.url),
@@ -256,3 +264,93 @@ def test_pins_every_hop_to_validated_ip() -> None:
         "https://example.test/page",
         "https://other.test/final",
     ]
+
+
+def test_robots_disallow_blocks_page_request() -> None:
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(request.url.path)
+        if request.url.path == "/robots.txt":
+            return httpx.Response(
+                200,
+                text="User-agent: *\nDisallow: /private",
+                headers={"content-type": "text/plain"},
+            )
+        return httpx.Response(
+            200, headers={"content-type": "text/html"}, text="<p>ok</p>"
+        )
+
+    with pytest.raises(FetchError) as excinfo:
+        make_fetcher(handler).fetch("https://93.184.216.34/private/page")
+
+    assert excinfo.value.code == ErrorCode.ROBOTS_DISALLOWED
+    assert requested == ["/robots.txt"]
+
+
+def test_missing_robots_file_allows_fetch() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        return httpx.Response(
+            200, headers={"content-type": "text/html"}, text="<p>ok</p>"
+        )
+
+    result = make_fetcher(handler).fetch(PUBLIC_URL)
+
+    assert result.html == "<p>ok</p>"
+
+
+def test_robots_result_is_cached_per_host() -> None:
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.url.path == "/robots.txt":
+            return httpx.Response(
+                200,
+                text="User-agent: *\nDisallow: /blocked",
+                headers={"content-type": "text/plain"},
+            )
+        return httpx.Response(
+            200, headers={"content-type": "text/html"}, text="<p>ok</p>"
+        )
+
+    fetcher = make_fetcher(handler)
+    fetcher.fetch(PUBLIC_URL)
+    fetcher.fetch(PUBLIC_URL)
+
+    assert paths.count("/robots.txt") == 1
+    assert paths.count("/page") == 2
+
+
+def test_sends_configured_user_agent() -> None:
+    seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("user-agent"))
+        return httpx.Response(
+            200, headers={"content-type": "text/html"}, text="<p>ok</p>"
+        )
+
+    make_fetcher(handler, user_agent="my-agent/v1").fetch(PUBLIC_URL)
+
+    assert seen == ["my-agent/v1", "my-agent/v1"]
+
+
+def test_polite_delay_applies_between_requests_to_same_host() -> None:
+    sleeps: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        return httpx.Response(
+            200, headers={"content-type": "text/html"}, text="<p>ok</p>"
+        )
+
+    fetcher = make_fetcher(handler, polite_delay_s=1.0, sleeper=sleeps.append)
+    fetcher.fetch(PUBLIC_URL)
+    fetcher.fetch(PUBLIC_URL)
+
+    assert len(sleeps) == 2
+    assert all(0.9 < wait <= 1.0 for wait in sleeps)
