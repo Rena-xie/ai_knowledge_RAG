@@ -25,7 +25,7 @@ def test_defaults_match_design_doc() -> None:
     assert settings.bm25_top_k == 20
     assert settings.rrf_k == 60
     assert settings.final_top_k == 8
-    assert settings.min_dense_similarity == 0.4
+    assert settings.min_dense_similarity == 0.58
     assert settings.parent_max_chars == 3000
     assert settings.child_target_chars == 900
     assert settings.child_max_chars == 1000
