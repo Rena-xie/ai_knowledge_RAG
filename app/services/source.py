@@ -134,9 +134,11 @@ class SourceService:
                 session.commit()
 
         child_ids = self._child_ids(source_id)
+        stage = "index"
         try:
             self._vector_index.delete_by_source(source_id)
             self._fts_index.delete_many(child_ids)
+            stage = "db"
             with self._session_factory() as session:
                 session.execute(
                     delete(ChildChunk).where(ChildChunk.source_id == source_id)
@@ -148,10 +150,14 @@ class SourceService:
                     delete(KnowledgeSource).where(KnowledgeSource.id == source_id)
                 )
                 session.commit()
+        except AppError as error:
+            # 索引层已给出明确错误码（如 INDEX_WRITE_FAILED），原样保留。
+            self._mark_delete_failed(source_id, error.code, error.message)
+            raise AppError(error.code, f"级联删除失败: {error}") from error
         except Exception as error:
-            code = ErrorCode.DB_ERROR if isinstance(error, AppError) else (
-                ErrorCode.INDEX_WRITE_FAILED
-            )
+            # 按失败阶段区分：关系数据删除失败是数据库故障，派生索引删除失败
+            # 才是索引写入失败，避免排查时被错误码引向错误方向。
+            code = ErrorCode.DB_ERROR if stage == "db" else ErrorCode.INDEX_WRITE_FAILED
             self._mark_delete_failed(source_id, code, str(error))
             raise AppError(code, f"级联删除失败: {error}") from error
 

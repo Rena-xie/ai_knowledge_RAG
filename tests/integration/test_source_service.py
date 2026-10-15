@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import Engine, func, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError, ErrorCode
@@ -35,6 +36,41 @@ class FailingOnceVector:
             self.should_fail = False
             raise RuntimeError("vector 删除失败")
         self._inner.delete_by_source(source_id)
+
+
+class AppErrorVector:
+    """删除时抛出带错误码的业务异常，用于验证错误码原样保留。"""
+
+    def delete_by_source(self, source_id: int) -> None:
+        raise AppError(ErrorCode.INDEX_WRITE_FAILED, "chroma 写入失败")
+
+
+class ExecuteFailingSession:
+    """代理真实 Session，仅让 execute 失败，用于模拟数据库故障。"""
+
+    def __init__(self, inner: Session) -> None:
+        self._inner = inner
+
+    def __enter__(self) -> "ExecuteFailingSession":
+        return self
+
+    def __exit__(self, *_exc_info: object) -> bool:
+        self._inner.close()
+        return False
+
+    def get(self, *args: object, **kwargs: object):
+        return self._inner.get(*args, **kwargs)
+
+    def scalars(self, *args: object, **kwargs: object):
+        return self._inner.scalars(*args, **kwargs)
+
+    def commit(self) -> None:
+        self._inner.commit()
+
+    def execute(self, *args: object, **kwargs: object):
+        raise OperationalError(
+            "DELETE FROM knowledge_sources", {}, Exception("database is locked")
+        )
 
 
 @pytest.fixture
@@ -259,3 +295,47 @@ def test_delete_is_reentrant_after_failure(env: dict[str, object]) -> None:
     service.delete(source_id)
 
     assert service.get(source_id) is None
+
+
+def test_delete_app_error_keeps_index_code(env: dict[str, object]) -> None:
+    """索引层已给出错误码时原样记录，不再被改写成数据库故障。"""
+
+    source_id = seed_source(env)
+    service = SourceService(
+        session_factory=env["session_factory"],
+        vector_index=AppErrorVector(),
+        fts_index=env["fts"],
+    )
+
+    with pytest.raises(AppError) as excinfo:
+        service.delete(source_id)
+
+    assert excinfo.value.code == ErrorCode.INDEX_WRITE_FAILED
+    source = service.get(source_id)
+    assert source is not None
+    assert source.error_code == ErrorCode.INDEX_WRITE_FAILED.value
+
+
+def test_delete_db_failure_records_db_error(env: dict[str, object]) -> None:
+    """关系数据删除失败应记录为数据库故障，而不是索引写入失败。"""
+
+    source_id = seed_source(env)
+    real_factory = env["session_factory"]
+
+    def failing_factory() -> ExecuteFailingSession:
+        return ExecuteFailingSession(real_factory())
+
+    service = SourceService(
+        session_factory=failing_factory,
+        vector_index=env["vector"],
+        fts_index=env["fts"],
+    )
+
+    with pytest.raises(AppError) as excinfo:
+        service.delete(source_id)
+
+    assert excinfo.value.code == ErrorCode.DB_ERROR
+    source = service.get(source_id)
+    assert source is not None
+    assert source.status == "deleting"
+    assert source.error_code == ErrorCode.DB_ERROR.value
