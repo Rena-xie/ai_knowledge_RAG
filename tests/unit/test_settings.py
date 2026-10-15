@@ -1,6 +1,6 @@
 """配置默认值与入库预算规则（见《项目介绍.md》10.2、10.4）。"""
 
-from app.core.settings import Settings
+from app.core.settings import DEFAULT_LOG_FILE, Settings
 
 
 def build_settings() -> Settings:
@@ -35,6 +35,7 @@ def test_defaults_match_design_doc() -> None:
     assert settings.max_request_bytes == 1048576
     assert settings.app_host == "127.0.0.1"
     assert settings.app_port == 8000
+    assert DEFAULT_LOG_FILE == "data/logs/app.log"
 
 
 def test_ingest_budget_covers_stage_timeouts() -> None:

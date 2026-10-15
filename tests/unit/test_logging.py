@@ -2,8 +2,9 @@
 
 import json
 import logging
+from pathlib import Path
 
-from app.core.logging import JsonFormatter
+from app.core.logging import JsonFormatter, configure_logging
 
 
 def test_json_formatter_emits_ascii_safe_json() -> None:
@@ -27,3 +28,21 @@ def test_json_formatter_emits_ascii_safe_json() -> None:
     assert data["message"] == "应用启动完成"
     assert data["stage"] == "startup"
     assert data["duration_ms"] == 12
+
+
+def test_configure_logging_writes_rolling_file(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "app.log"
+
+    configure_logging("INFO", log_file=log_path)
+    logging.getLogger("app.test").warning("写入文件", extra={"stage": "unit"})
+
+    lines = log_path.read_text(encoding="utf-8").strip().splitlines()
+    payload = json.loads(lines[-1])
+    assert payload["message"] == "写入文件"
+    assert payload["stage"] == "unit"
+
+
+def test_configure_logging_without_file_uses_stdout_only() -> None:
+    configure_logging("INFO", log_file="")
+
+    assert len(logging.getLogger().handlers) == 1

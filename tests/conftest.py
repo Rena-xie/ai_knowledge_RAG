@@ -22,6 +22,7 @@ def test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
     monkeypatch.setenv("LLM_API_KEY", "test-llm-key")
     monkeypatch.setenv("SQLITE_PATH", str(tmp_path / "app.db"))
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
+    monkeypatch.setenv("LOG_FILE", str(tmp_path / "logs" / "app.log"))
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

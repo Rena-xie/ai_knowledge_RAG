@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = getattr(app.state, "settings", None) or get_settings()
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, log_file=settings.log_file)
     run_startup_checks(settings)
     container = getattr(app.state, "container", None)
     if container is None:

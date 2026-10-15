@@ -12,6 +12,7 @@ DEFAULT_FETCH_USER_AGENT = (
     "ai-knowledge-base/v1 (+https://github.com/Rena-xie/ai_knowledge_RAG)"
 )
 DEFAULT_ROBOTS_CACHE_TTL_S = 300.0
+DEFAULT_LOG_FILE = "data/logs/app.log"
 
 
 class Settings(BaseSettings):
@@ -73,6 +74,7 @@ class Settings(BaseSettings):
     max_request_bytes: int = 1048576
     app_host: str = "127.0.0.1"
     app_port: int = 8000
+    log_file: str = DEFAULT_LOG_FILE
     log_level: str = "INFO"
 
 

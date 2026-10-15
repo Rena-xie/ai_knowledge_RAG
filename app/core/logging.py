@@ -2,8 +2,12 @@
 
 import json
 import logging
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 EXTRA_FIELDS = ("request_id", "source_id", "stage", "duration_ms", "error_code")
+LOG_MAX_BYTES = 5 * 1024 * 1024
+LOG_BACKUP_COUNT = 3
 
 
 class JsonFormatter(logging.Formatter):
@@ -26,12 +30,32 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload)
 
 
-def configure_logging(level: str = "INFO") -> None:
-    """重置根日志配置，输出单行 JSON 到标准输出。"""
+def configure_logging(
+    level: str = "INFO",
+    *,
+    log_file: str | Path | None = None,
+    max_bytes: int = LOG_MAX_BYTES,
+    backup_count: int = LOG_BACKUP_COUNT,
+) -> None:
+    """重置根日志配置：单行 JSON 输出到标准输出，可选按大小滚动的文件。
 
-    handler = logging.StreamHandler()
-    handler.setFormatter(JsonFormatter())
+    ``log_file`` 为空或未提供时只写标准输出。
+    """
+
+    formatter = JsonFormatter()
     root = logging.getLogger()
-    root.handlers.clear()
-    root.addHandler(handler)
+    for existing in list(root.handlers):
+        root.removeHandler(existing)
+        existing.close()
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    root.addHandler(stream_handler)
+    if log_file:
+        path = Path(log_file)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
+        )
+        file_handler.setFormatter(formatter)
+        root.addHandler(file_handler)
     root.setLevel(level.upper())
