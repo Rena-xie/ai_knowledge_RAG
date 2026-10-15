@@ -10,6 +10,8 @@ __pycache__/
 
 # 环境变量与密钥
 .env
+.env.*
+!.env.example
 
 # 运行时数据（SQLite / Chroma）
 data/
@@ -25,3 +27,4 @@ Thumbs.db
 
 # 本地 Agent 配置（不入库）
 AGENTS.md
+.claude/
