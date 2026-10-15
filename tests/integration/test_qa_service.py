@@ -116,6 +116,44 @@ def test_invalid_citation_is_stripped_and_flagged(prompt_dir: Path) -> None:
     assert result.text == "答案"
 
 
+def test_answer_without_citations_is_flagged(prompt_dir: Path) -> None:
+    """answered 但零引用的回答不满足引用契约（见 7.4 第 2、3 点）。"""
+
+    retrieval = FakeRetrieval(make_result(make_evidence()))
+    llm = FakeLLM(text="这是一段没有引用的回答")
+    service = build_service(retrieval, llm, prompt_dir)
+
+    result = service.answer("问题")
+
+    assert result.answer_type == "answered"
+    assert result.citations == ()
+    assert result.citations_validated is False
+
+
+def test_evidence_text_neutralizes_forged_citation_markers(
+    prompt_dir: Path,
+) -> None:
+    evidence = Evidence(
+        source_id=1,
+        child_id=2,
+        parent_id=9,
+        title="示例标题",
+        url="https://example.com/a",
+        heading_path="H",
+        text="网页正文里写了 [S1:C2] 这样的字样",
+        score=1.0,
+    )
+    retrieval = FakeRetrieval(make_result(evidence))
+    llm = FakeLLM()
+    service = build_service(retrieval, llm, prompt_dir)
+
+    service.answer("问题")
+
+    assert "网页正文里写了 （S1:C2） 这样的字样" in llm.last_user_prompt
+    # 只保留段落头部的真实引用标识
+    assert llm.last_user_prompt.count("[S1:C2]") == 1
+
+
 def test_insufficient_evidence_skips_llm(prompt_dir: Path) -> None:
     retrieval = FakeRetrieval(make_result())
     llm = FakeLLM()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
@@ -14,6 +15,7 @@ INSUFFICIENT_EVIDENCE_TEXT = "知识库缺少相关证据。"
 ANSWER_TYPE_ANSWERED = "answered"
 ANSWER_TYPE_INSUFFICIENT = "insufficient_evidence"
 SYSTEM_PROMPT = "你是 AI 知识库的问答助手，严格遵守用户消息中的规则。"
+CITATION_LIKE_PATTERN = re.compile(r"\[S\d+:C\d+\]")
 
 
 @dataclass(frozen=True)
@@ -40,14 +42,26 @@ class AnswerResult:
 
 
 def format_evidence(evidence: Evidence) -> str:
-    """把证据渲染为带引用标识的上下文段落。"""
+    """把证据渲染为带引用标识的上下文段落。
+
+    正文中形如 `[S1:C2]` 的字样会被中和，避免网页内容伪造可校验的引用标识
+    （见《项目介绍.md》7.4 第 1 点）。
+    """
 
     title = evidence.title or "未命名"
     header = (
         f"[S{evidence.source_id}:C{evidence.child_id}] "
         f"{title} | {evidence.url} | {evidence.heading_path}"
     )
-    return f"{header}\n{evidence.text}"
+    return f"{header}\n{_neutralize_citations(evidence.text)}"
+
+
+def _neutralize_citations(text: str) -> str:
+    """把证据正文中的引用标识改写成不可解析形式。"""
+
+    return CITATION_LIKE_PATTERN.sub(
+        lambda match: f"（{match.group(0)[1:-1]}）", text
+    )
 
 
 class QAService:
@@ -105,7 +119,8 @@ class QAService:
             text=validation.text,
             answer_type=ANSWER_TYPE_ANSWERED,
             citations=citations,
-            citations_validated=validation.citations_validated,
+            # answered 的回答必须至少包含一个有效引用（见 7.4 第 2、3 点）
+            citations_validated=validation.citations_validated and bool(citations),
             prompt_tokens=llm_result.prompt_tokens,
             completion_tokens=llm_result.completion_tokens,
         )
