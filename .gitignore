@@ -13,6 +13,9 @@ __pycache__/
 # 运行时数据（SQLite / Chroma）
 data/
 
+# 评测语料切块导出（由 run_eval.py --dump-children 生成，用于人工标注）
+tests/evals/children.json
+
 # 编辑器与系统文件
 .idea/
 .vscode/

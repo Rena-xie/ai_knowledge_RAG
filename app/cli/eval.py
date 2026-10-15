@@ -1,67 +1,73 @@
-"""评测命令：在夹具语料或当前知识库上运行题库（见《项目介绍.md》11.4）。"""
+"""评测命令：在真实语料或当前知识库上运行题库（见《项目介绍.md》11.4）。"""
 
 from __future__ import annotations
 
 import argparse
 import json
-import tempfile
-import threading
 from collections.abc import Sequence
-from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from sqlalchemy import select
 
 from app.api.deps import Container
 from app.core.clock import utc_now_iso
+from app.core.errors import AppError
 from app.core.settings import get_settings
 from app.infra.db import ChildChunk, KnowledgeSource
-from app.infra.fetcher import Fetcher
 from app.services.evaluation import EvaluationRunner, load_questions
 
-DEFAULT_CORPUS_DIR = Path("tests/evals/corpus")
+DEFAULT_CORPUS = Path("tests/evals/corpus.json")
 DEFAULT_QUESTIONS = Path("tests/evals/questions.json")
 DEFAULT_OUTPUT_DIR = Path("tests/evals/results")
+DEFAULT_WORKDIR = Path("data/eval-kb")
 
 
-class QuietHandler(SimpleHTTPRequestHandler):
-    """静默的静态文件处理器。"""
+def load_corpus(path: Path) -> list[str]:
+    """读取语料清单并展开为 URL 列表，保持文件中的顺序。
 
-    def log_message(self, format: str, *args: object) -> None:
-        return None
+    入库顺序决定 `child_id`，题库标注依赖该顺序，因此不得重排。
+    """
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    urls = [
+        str(url)
+        for collection in payload.get("collections", [])
+        for url in collection.get("urls", [])
+    ]
+    if not urls:
+        raise ValueError(f"语料清单为空: {path}")
+    return urls
 
 
-def serve_directory(directory: Path) -> tuple[ThreadingHTTPServer, str]:
-    """在回环地址上临时提供静态文件，返回服务器与基址。"""
+def build_corpus_container(urls: Sequence[str], workdir: Path) -> Container:
+    """把语料 URL 依次入库到评测知识库，返回容器。
 
-    handler = partial(QuietHandler, directory=str(directory))
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server, f"http://127.0.0.1:{server.server_address[1]}"
+    已完成的来源会被跳过，因此中断后重跑即可续传；失败的 URL 记录后继续处理，
+    结束后打印统计——失败页会改变 `child_id` 分布，标注题库前必须先修掉。
+    """
 
-
-def build_corpus_container(
-    corpus_dir: Path, workdir: Path
-) -> tuple[Container, ThreadingHTTPServer]:
-    """把夹具语料导入临时知识库，返回容器与本地文件服务器。"""
-
+    workdir.mkdir(parents=True, exist_ok=True)
     settings = get_settings().model_copy(
         update={"sqlite_path": workdir / "app.db", "chroma_path": workdir / "chroma"}
     )
-    server, base_url = serve_directory(corpus_dir)
-    fetcher = Fetcher(
-        timeout_s=10,
-        max_bytes=settings.fetch_max_bytes,
-        max_redirects=settings.fetch_max_redirects,
-        max_retries=settings.fetch_max_retries,
-        polite_delay_s=0,  # 本地夹具站点：无需限速，避免拖慢评测
-        validator=lambda _address: True,  # 本地夹具语料需要放行回环地址
-    )
-    container = Container(settings, fetcher=fetcher)
-    for path in sorted(corpus_dir.glob("*.html")):
-        container.ingestion_service.ingest(f"{base_url}/{path.name}")
-    return container, server
+    container = Container(settings)
+    total = len(urls)
+    failed: list[tuple[str, str]] = []
+    for index, url in enumerate(urls, start=1):
+        try:
+            result = container.ingestion_service.ingest(url)
+        except AppError as error:
+            failed.append((url, error.code.value))
+            print(f"[{index}/{total}] FAILED {error.code.value} {url}")
+            continue
+        print(
+            f"[{index}/{total}] {result.status} triggered={result.triggered} "
+            f"children={result.child_count} {url}"
+        )
+    print(f"入库完成：成功 {total - len(failed)}，失败 {len(failed)}")
+    for url, code in failed:
+        print(f"  失败 {code} {url}")
+    return container
 
 
 def dump_children(container: Container, target: Path) -> int:
@@ -81,9 +87,9 @@ def dump_children(container: Container, target: Path) -> int:
     payload = [
         {
             "child_id": row[0],
-            "source": row[1].rsplit("/", 1)[-1],
+            "source": row[1],
             "heading_path": row[2],
-            "text": row[3][:120],
+            "text": row[3][:200],
         }
         for row in rows
     ]
@@ -108,7 +114,13 @@ def run_eval(
         prog="run_eval", description="运行检索与问答评测"
     )
     parser.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
-    parser.add_argument("--corpus-dir", type=Path, default=DEFAULT_CORPUS_DIR)
+    parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
+    parser.add_argument(
+        "--workdir",
+        type=Path,
+        default=DEFAULT_WORKDIR,
+        help="评测知识库目录；已完成的来源会跳过，便于中断后续跑",
+    )
     parser.add_argument("--output", type=Path, default=None, help="结果输出路径")
     parser.add_argument(
         "--use-current-db", action="store_true", help="使用当前配置的知识库"
@@ -121,17 +133,14 @@ def run_eval(
     )
     args = parser.parse_args(argv)
 
-    temp_context: tempfile.TemporaryDirectory | None = None
-    server: ThreadingHTTPServer | None = None
     container: Container | None = None
     try:
         if runner is None:
             if args.use_current_db:
                 container = Container(get_settings())
             else:
-                temp_context = tempfile.TemporaryDirectory(prefix="aikb-eval-")
-                container, server = build_corpus_container(
-                    args.corpus_dir, Path(temp_context.name)
+                container = build_corpus_container(
+                    load_corpus(args.corpus), args.workdir
                 )
         if args.dump_children is not None:
             if container is None:
@@ -150,7 +159,7 @@ def run_eval(
         payload = {
             "created_at": utc_now_iso(),
             "questions_file": str(args.questions),
-            "corpus": "current-db" if args.use_current_db else str(args.corpus_dir),
+            "corpus": "current-db" if args.use_current_db else str(args.corpus),
             **report.as_dict(),
         }
         output = args.output or DEFAULT_OUTPUT_DIR / "latest.json"
@@ -173,8 +182,3 @@ def run_eval(
     finally:
         if container is not None:
             container.close()
-        if server is not None:
-            server.shutdown()
-            server.server_close()
-        if temp_context is not None:
-            temp_context.cleanup()

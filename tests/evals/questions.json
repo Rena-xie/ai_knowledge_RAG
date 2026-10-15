@@ -1,123 +1,190 @@
 {
-  "version": 1,
-  "corpus": "tests/evals/corpus",
+  "version": 2,
+  "corpus": "tests/evals/corpus.json",
   "chunker_version": "v1",
-  "note": "相关 child_id 基于固定夹具语料与 chunker v1 人工标注；更换语料或切块规则后需重新标注。",
+  "snapshot": "2026-10-15",
+  "note": "相关 child_id 基于 data/eval-kb 中 corpus.json 快照的入库结果人工标注；语料顺序变化、页面内容更新或切块规则调整后需重新标注。",
   "questions": [
     {
       "id": "q01",
       "category": "专有名词",
-      "question": "BM25 的 k1 和 b 参数分别控制什么？",
-      "relevant_child_ids": [4]
+      "question": "Python 的 dict 是怎么存储数据的？为什么查找很快？",
+      "relevant_child_ids": [
+        286,
+        288
+      ]
     },
     {
       "id": "q02",
       "category": "专有名词",
-      "question": "倒排索引配合 jieba 分词解决了什么问题？",
-      "relevant_child_ids": [5]
+      "question": "Python 里 // 运算符和 / 有什么区别？",
+      "relevant_child_ids": [
+        132,
+        134
+      ]
     },
     {
       "id": "q03",
       "category": "专有名词",
-      "question": "RRF 的平滑常数通常取多少？",
-      "relevant_child_ids": [17]
+      "question": "enumerate 函数有什么用？",
+      "relevant_child_ids": [
+        523,
+        524
+      ]
     },
     {
       "id": "q04",
       "category": "专有名词",
-      "question": "Python 里十六进制整数怎么写？",
-      "relevant_child_ids": [8]
+      "question": "装饰器是做什么用的？",
+      "relevant_child_ids": [
+        729,
+        733
+      ]
     },
     {
       "id": "q05",
-      "category": "语义改写",
-      "question": "为什么浮点数计算会出现小数误差？",
-      "relevant_child_ids": [9]
+      "category": "专有名词",
+      "question": "LangChain Deep Agents 的执行环境由哪几层组成？",
+      "relevant_child_ids": [
+        2098,
+        2099
+      ]
     },
     {
       "id": "q06",
       "category": "语义改写",
-      "question": "文档太长时 BM25 的得分为什么会受影响？",
-      "relevant_child_ids": [3]
+      "question": "怎么取一个列表的前三个元素？",
+      "relevant_child_ids": [
+        480,
+        481,
+        482
+      ]
     },
     {
       "id": "q07",
       "category": "语义改写",
-      "question": "两路检索的得分不在同一量纲，直接相加会有什么问题？",
-      "relevant_child_ids": [18]
+      "question": "需要一边循环一边产生数据、又不占内存，应该用什么写法？",
+      "relevant_child_ids": [
+        577,
+        579
+      ]
     },
     {
       "id": "q08",
       "category": "语义改写",
-      "question": "Python 的变量需要提前声明类型吗？",
-      "relevant_child_ids": [7]
+      "question": "CPU 有多个核心，为什么 Python 多线程跑计算任务只用一个核？",
+      "relevant_child_ids": [
+        1434
+      ]
     },
     {
       "id": "q09",
-      "category": "代码查询",
-      "question": "示例代码 print(\"hello, world\") 出现在哪个章节？",
-      "relevant_child_ids": [14]
+      "category": "语义改写",
+      "question": "Python 怎么读写一个文本文件？",
+      "relevant_child_ids": [
+        1293,
+        1294
+      ]
     },
     {
       "id": "q10",
-      "category": "代码查询",
-      "question": "Python 中 / 与 // 的结果类型有什么区别？",
-      "relevant_child_ids": [12]
+      "category": "语义改写",
+      "question": "怎么让一个函数接收另一个函数作为参数？",
+      "relevant_child_ids": [
+        612
+      ]
     },
     {
       "id": "q11",
       "category": "代码查询",
-      "question": "字符串前加字母 r 有什么作用？",
-      "relevant_child_ids": [11]
+      "question": "print('hello, world') 出现在教程的哪一章？",
+      "relevant_child_ids": [
+        23
+      ]
     },
     {
       "id": "q12",
-      "category": "跨章节",
-      "question": "整数和浮点数在存储与精度上有什么不同？",
-      "relevant_child_ids": [8, 9]
+      "category": "代码查询",
+      "question": "示例里用 re.match 校验 010-12345 这类号码，用到了什么正则？",
+      "relevant_child_ids": [
+        1466,
+        1478
+      ]
     },
     {
       "id": "q13",
-      "category": "跨章节",
-      "question": "布尔值和整数之间如何转换？",
-      "relevant_child_ids": [13]
+      "category": "代码查询",
+      "question": "代码 open('/Users/michael/test.txt', 'r') 在讲什么？",
+      "relevant_child_ids": [
+        1294
+      ]
     },
     {
       "id": "q14",
-      "category": "跨章节",
-      "question": "为什么中文检索需要分词，而向量检索更依赖语义？",
-      "relevant_child_ids": [5, 6]
+      "category": "代码查询",
+      "question": "函数里写 yield b 是什么写法？",
+      "relevant_child_ids": [
+        578,
+        579
+      ]
     },
     {
       "id": "q15",
       "category": "跨章节",
-      "question": "RRF 如何避免量纲问题，同时保证并列结果稳定？",
-      "relevant_child_ids": [18, 19]
+      "question": "Python 的 list、tuple 和 dict 分别适合什么场景？",
+      "relevant_child_ids": [
+        185,
+        286,
+        288
+      ]
     },
     {
       "id": "q16",
-      "category": "无答案",
-      "question": "HNSW 索引的 ef_construction 参数怎么调？"
+      "category": "跨章节",
+      "question": "从编码角度解释 Python 3 的字符串为什么默认是 Unicode？",
+      "relevant_child_ids": [
+        142,
+        143
+      ]
     },
     {
       "id": "q17",
-      "category": "无答案",
-      "question": "Kubernetes Ingress 怎么配置 TLS 证书？"
+      "category": "跨章节",
+      "question": "Deep Agents 怎么在敏感操作前暂停并等待人工确认？",
+      "relevant_child_ids": [
+        2096,
+        2130
+      ]
     },
     {
       "id": "q18",
       "category": "无答案",
-      "question": "Python 的 asyncio 事件循环内部是如何实现的？"
+      "question": "Kubernetes Ingress 怎么配置 TLS 证书？",
+      "relevant_child_ids": []
     },
     {
       "id": "q19",
       "category": "无答案",
-      "question": "PostgreSQL 的 VACUUM 有什么作用？"
+      "question": "Redis 的 RDB 和 AOF 持久化有什么区别？",
+      "relevant_child_ids": []
     },
     {
       "id": "q20",
       "category": "无答案",
-      "question": "DeepSeek API 的计费标准是什么？"
+      "question": "PyTorch 的自动求导是怎么实现的？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q21",
+      "category": "无答案",
+      "question": "怎么用 GitHub Actions 配置 CI 流水线？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q22",
+      "category": "无答案",
+      "question": "Excel 数据透视表怎么做？",
+      "relevant_child_ids": []
     }
   ]
 }
