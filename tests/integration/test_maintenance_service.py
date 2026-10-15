@@ -1,6 +1,7 @@
 """派生索引维护：重建、一致性校验与备份（见《项目介绍.md》5.4、5.6）。"""
 
 import json
+import socket
 import sqlite3
 from collections.abc import Iterator, Sequence
 from pathlib import Path
@@ -8,7 +9,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import Engine, select
 
-from app.cli.maintenance import run_backup, run_consistency
+from app.cli.maintenance import _is_service_running, run_backup, run_consistency
 from app.core.settings import Settings
 from app.infra.db import (
     SCHEMA_VERSION,
@@ -260,3 +261,62 @@ def test_backup_command_returns_success(env: dict[str, object]) -> None:
 
     assert exit_code == 0
     assert list(target.glob("manifest-*.json"))
+
+
+def test_is_service_running_detects_listener() -> None:
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        port = listener.getsockname()[1]
+
+        assert _is_service_running("127.0.0.1", port) is True
+
+    assert _is_service_running("127.0.0.1", port) is False
+
+
+def test_backup_command_warns_when_service_running(
+    env: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """备份脚本检测到服务在运行时应输出告警，但不阻断备份。"""
+
+    seed_source(env, url="https://example.com/a")
+    service: MaintenanceService = env["service"]
+    target = env["tmp_path"] / "cli-backup-warn"
+    monkeypatch.setattr(
+        "app.cli.maintenance._is_service_running", lambda host, port: True
+    )
+    monkeypatch.setattr(
+        "app.cli.maintenance.build_maintenance_service", lambda settings: service
+    )
+
+    exit_code = run_backup(["--target", str(target)], service=None)
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "警告" in captured.err
+    assert "服务正在运行" in captured.err
+    assert list(target.glob("manifest-*.json"))
+
+
+def test_backup_command_quiet_when_service_stopped(
+    env: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    seed_source(env, url="https://example.com/a")
+    service: MaintenanceService = env["service"]
+    target = env["tmp_path"] / "cli-backup-quiet"
+    monkeypatch.setattr(
+        "app.cli.maintenance._is_service_running", lambda host, port: False
+    )
+    monkeypatch.setattr(
+        "app.cli.maintenance.build_maintenance_service", lambda settings: service
+    )
+
+    exit_code = run_backup(["--target", str(target)], service=None)
+
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "警告" not in captured.err

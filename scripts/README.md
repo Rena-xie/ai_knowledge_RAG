@@ -16,6 +16,8 @@
   ```
 
 - `backup.py`：备份 SQLite（在线一致性快照）与 Chroma 目录，建议先停服。
+  运行前会探测 `APP_HOST:APP_PORT`：若服务仍在运行则在标准错误输出告警（Chroma
+  目录在服务运行中复制可能不一致），但不阻断备份。
 
   ```powershell
   uv run python scripts/backup.py --target backups

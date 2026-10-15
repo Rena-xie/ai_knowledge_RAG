@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
+import sys
 from collections.abc import Sequence
 from dataclasses import asdict
 from pathlib import Path
@@ -85,7 +87,7 @@ def run_consistency(
 def run_backup(
     argv: Sequence[str] | None = None, *, service: MaintenanceService | None = None
 ) -> int:
-    """备份 SQLite 与 Chroma 数据（建议先停服）。"""
+    """备份 SQLite 与 Chroma 数据；检测到服务仍在运行时告警。"""
 
     parser = argparse.ArgumentParser(
         prog="backup", description="备份 SQLite 与 Chroma 数据"
@@ -94,9 +96,29 @@ def run_backup(
         "--target", type=Path, default=Path("backups"), help="备份输出目录"
     )
     args = parser.parse_args(argv)
-    maintenance = service if service is not None else build_maintenance_service(
-        get_settings()
-    )
+    if service is None:
+        settings = get_settings()
+        if _is_service_running(settings.app_host, settings.app_port):
+            print(
+                "警告: 检测到服务正在运行"
+                f"（{settings.app_host}:{settings.app_port} 可连接），"
+                "Chroma 目录在服务运行中复制可能不一致；"
+                "建议停止服务后重新备份（见《项目介绍.md》5.6）。",
+                file=sys.stderr,
+            )
+        maintenance = build_maintenance_service(settings)
+    else:
+        maintenance = service
     report = maintenance.backup(args.target)
     print(json.dumps(asdict(report), ensure_ascii=False, default=str))
     return 0
+
+
+def _is_service_running(host: str, port: int, *, timeout_s: float = 0.5) -> bool:
+    """探测本机服务端口是否可连接，用于备份前告警。"""
+
+    try:
+        with socket.create_connection((host, port), timeout=timeout_s):
+            return True
+    except OSError:
+        return False
