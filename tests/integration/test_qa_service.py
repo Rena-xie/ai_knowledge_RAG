@@ -31,9 +31,11 @@ class FakeLLM:
         self._error = error
         self.calls = 0
         self.last_user_prompt = ""
+        self.last_system_prompt = ""
 
     def complete(self, *, system_prompt: str, user_prompt: str) -> LLMResult:
         self.calls += 1
+        self.last_system_prompt = system_prompt
         self.last_user_prompt = user_prompt
         if self._error is not None:
             raise self._error
@@ -66,8 +68,8 @@ def make_result(*evidences: Evidence) -> RetrievalResult:
 def prompt_dir(tmp_path: Path) -> Path:
     path = tmp_path / "system_prompt_v1.md"
     path.write_text(
-        "# 提示词 v1\n\n---\n\n规则：只依据证据回答。\n\n"
-        "<evidence>\n{evidence}\n</evidence>\n\n问题：{question}\n",
+        "# 提示词 v1\n\n--- system ---\n规则：只依据证据回答。\n\n"
+        "--- user ---\n<evidence>\n{evidence}\n</evidence>\n\n问题：{question}\n",
         encoding="utf-8",
     )
     return tmp_path
@@ -187,3 +189,29 @@ def test_prompt_contains_evidence_marker_and_question(prompt_dir: Path) -> None:
     assert "[S1:C2]" in llm.last_user_prompt
     assert "证据正文" in llm.last_user_prompt
     assert "为什么用 BM25？" in llm.last_user_prompt
+
+
+def test_rules_are_sent_as_system_prompt(prompt_dir: Path) -> None:
+    """规则进 system 消息，证据与问题进 user 消息（见 7.5、9.2）。"""
+
+    retrieval = FakeRetrieval(make_result(make_evidence()))
+    llm = FakeLLM()
+    service = build_service(retrieval, llm, prompt_dir)
+
+    service.answer("问题")
+
+    assert llm.last_system_prompt.strip() == "规则：只依据证据回答。"
+    assert "证据正文" not in llm.last_system_prompt
+
+
+def test_answer_reuses_given_retrieval(prompt_dir: Path) -> None:
+    """传入检索结果时不再重复召回（见 11.4）。"""
+
+    retrieval = FakeRetrieval(make_result())
+    llm = FakeLLM()
+    service = build_service(retrieval, llm, prompt_dir)
+
+    result = service.answer("问题", retrieval=make_result(make_evidence()))
+
+    assert result.answer_type == "answered"
+    assert retrieval.questions == []

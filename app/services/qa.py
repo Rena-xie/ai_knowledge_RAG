@@ -8,13 +8,12 @@ from dataclasses import dataclass
 
 from app.core.errors import AppError, ErrorCode
 from app.domain.citations import validate_citations
-from app.infra.llm import LLMClient, LLMError, load_prompt
-from app.services.retrieval import Evidence, RetrievalService
+from app.infra.llm import LLMClient, LLMError, load_prompt, split_prompt
+from app.services.retrieval import Evidence, RetrievalResult, RetrievalService
 
 INSUFFICIENT_EVIDENCE_TEXT = "知识库缺少相关证据。"
 ANSWER_TYPE_ANSWERED = "answered"
 ANSWER_TYPE_INSUFFICIENT = "insufficient_evidence"
-SYSTEM_PROMPT = "你是 AI 知识库的问答助手，严格遵守用户消息中的规则。"
 CITATION_LIKE_PATTERN = re.compile(r"\[S\d+:C\d+\]")
 
 
@@ -80,9 +79,15 @@ class QAService:
         self._prompt_name = prompt_name
         self._prompt_loader = prompt_loader
 
-    def answer(self, question: str) -> AnswerResult:
-        retrieval = self._retrieval_service.search(question)
-        if not retrieval.evidences:
+    def answer(
+        self, question: str, *, retrieval: RetrievalResult | None = None
+    ) -> AnswerResult:
+        """生成带引用的回答；传入 ``retrieval`` 时复用已有检索结果，不重复召回。"""
+
+        result = retrieval if retrieval is not None else self._retrieval_service.search(
+            question
+        )
+        if not result.evidences:
             return AnswerResult(
                 text=INSUFFICIENT_EVIDENCE_TEXT,
                 answer_type=ANSWER_TYPE_INSUFFICIENT,
@@ -92,12 +97,15 @@ class QAService:
 
         by_id = {
             (evidence.source_id, evidence.child_id): evidence
-            for evidence in retrieval.evidences
+            for evidence in result.evidences
         }
-        rendered = self._render_prompt(question, retrieval.evidences)
+        system_prompt, user_template = split_prompt(
+            self._prompt_loader(self._prompt_name)
+        )
+        rendered = self._render_prompt(user_template, question, result.evidences)
         try:
             llm_result = self._llm_client.complete(
-                system_prompt=SYSTEM_PROMPT, user_prompt=rendered
+                system_prompt=system_prompt, user_prompt=rendered
             )
         except LLMError as error:
             raise AppError(ErrorCode.LLM_FAILED, str(error)) from error
@@ -125,8 +133,10 @@ class QAService:
             completion_tokens=llm_result.completion_tokens,
         )
 
-    def _render_prompt(self, question: str, evidences: Sequence[Evidence]) -> str:
-        template = self._prompt_loader(self._prompt_name)
+    @staticmethod
+    def _render_prompt(
+        template: str, question: str, evidences: Sequence[Evidence]
+    ) -> str:
         evidence_text = "\n\n".join(format_evidence(item) for item in evidences)
         return template.replace("{evidence}", evidence_text).replace(
             "{question}", question

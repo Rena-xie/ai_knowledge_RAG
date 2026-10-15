@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from app.core.errors import ErrorCode
-from app.infra.llm import LLMClient, LLMError, load_prompt
+from app.infra.llm import LLMClient, LLMError, load_prompt, split_prompt
 
 API_BASE = "https://api.example.com/v1"
 
@@ -101,3 +101,17 @@ def test_loads_prompt_template() -> None:
 def test_missing_prompt_raises(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         load_prompt("not_exists", prompts_dir=tmp_path)
+
+
+def test_split_prompt_separates_system_and_user() -> None:
+    system, user = split_prompt(load_prompt("system_prompt_v1"))
+
+    assert "不可信数据" in system
+    assert "{evidence}" not in system
+    assert "{evidence}" in user
+    assert "{question}" in user
+
+
+def test_split_prompt_requires_markers() -> None:
+    with pytest.raises(ValueError):
+        split_prompt("没有分段标记的模板")

@@ -35,6 +35,7 @@ class QuestionResult:
     answer_type: str
     citations_validated: bool
     citation_count: int
+    max_similarity: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,7 @@ class EvalReport:
                     "answer_type": result.answer_type,
                     "citations_validated": result.citations_validated,
                     "citation_count": result.citation_count,
+                    "max_similarity": result.max_similarity,
                 }
                 for result in self.results
             ],
@@ -84,7 +86,8 @@ class EvaluationRunner:
         results: list[QuestionResult] = []
         for item in questions:
             retrieval = self._retrieval_service.search(item.question)
-            answer = self._qa_service.answer(item.question)
+            # 复用同一次检索结果，避免每题重复召回与重复向量化（见 11.4）
+            answer = self._qa_service.answer(item.question, retrieval=retrieval)
             top_k = tuple(retrieval.fused_ids[:RECALL_K])
             recall_hit: bool | None = None
             if item.relevant_child_ids:
@@ -98,6 +101,7 @@ class EvaluationRunner:
                     answer_type=answer.answer_type,
                     citations_validated=answer.citations_validated,
                     citation_count=len(answer.citations),
+                    max_similarity=retrieval.max_similarity,
                 )
             )
         return self._summarize(questions, results)

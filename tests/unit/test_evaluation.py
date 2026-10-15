@@ -16,19 +16,29 @@ from app.services.retrieval import RetrievalResult
 class FakeRetrieval:
     def __init__(self, mapping: dict[str, tuple[int, ...]]) -> None:
         self._mapping = mapping
+        self.calls: list[str] = []
 
     def search(self, question: str) -> RetrievalResult:
+        self.calls.append(question)
         fused = self._mapping.get(question, ())
         return RetrievalResult(
-            evidences=(), dense_ids=fused, bm25_ids=fused, fused_ids=fused
+            evidences=(),
+            dense_ids=fused,
+            bm25_ids=fused,
+            fused_ids=fused,
+            max_similarity=0.7,
         )
 
 
 class FakeQA:
     def __init__(self, mapping: dict[str, AnswerResult]) -> None:
         self._mapping = mapping
+        self.retrievals: list[RetrievalResult | None] = []
 
-    def answer(self, question: str) -> AnswerResult:
+    def answer(
+        self, question: str, *, retrieval: RetrievalResult | None = None
+    ) -> AnswerResult:
+        self.retrievals.append(retrieval)
         return self._mapping[question]
 
 
@@ -96,6 +106,21 @@ def test_metrics_are_none_without_denominator() -> None:
     assert report.recall_at_5 is None
     assert report.citation_validity is None
     assert report.insufficient_accuracy == 1.0
+
+
+def test_runner_reuses_one_retrieval_per_question() -> None:
+    """每题只检索一次，并把结果复用给问答（见 11.4）。"""
+
+    retrieval = FakeRetrieval({"命中题": (7, 8, 9)})
+    qa = FakeQA({"命中题": answer("答案 [S1:C2]")})
+    runner = EvaluationRunner(retrieval_service=retrieval, qa_service=qa)
+
+    report = runner.run([EvalQuestion("q1", "专有名词", "命中题", (7,))])
+
+    assert retrieval.calls == ["命中题"]
+    assert qa.retrievals[0] is not None
+    assert qa.retrievals[0].fused_ids == (7, 8, 9)
+    assert report.results[0].max_similarity == pytest.approx(0.7)
 
 
 def test_load_questions_reads_json(tmp_path: Path) -> None:

@@ -12,6 +12,8 @@ from app.core.errors import ErrorCode
 
 DEFAULT_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
+SYSTEM_MARKER = "--- system ---"
+USER_MARKER = "--- user ---"
 
 
 class LLMError(Exception):
@@ -40,9 +42,24 @@ def load_prompt(name: str, *, prompts_dir: Path | None = None) -> str:
     if not path.is_file():
         raise FileNotFoundError(f"提示词模板不存在: {path}")
     lines = path.read_text(encoding="utf-8").splitlines()
-    if "---" in lines:
-        lines = lines[lines.index("---") + 1 :]
-    return "\n".join(lines).strip()
+    start = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if line.strip().startswith("---")
+        ),
+        len(lines),
+    )
+    return "\n".join(lines[start:]).strip()
+
+
+def split_prompt(text: str) -> tuple[str, str]:
+    """把提示词模板拆分为 system 与 user 两段（见《项目介绍.md》7.5）。"""
+
+    if SYSTEM_MARKER not in text or USER_MARKER not in text:
+        raise ValueError("提示词模板缺少 system/user 分段标记")
+    system_part, _, user_part = text.partition(USER_MARKER)
+    return system_part.replace(SYSTEM_MARKER, "").strip(), user_part.strip()
 
 
 class LLMClient:
