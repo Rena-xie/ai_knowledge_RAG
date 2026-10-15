@@ -84,4 +84,5 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """返回进程内共享的配置实例。"""
 
-    return Settings()
+    # 必填项由环境变量 / .env 提供，mypy 无法从构造签名推知。
+    return Settings()  # type: ignore[call-arg]

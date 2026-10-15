@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: 安装 uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+      - name: 安装依赖（按 uv.lock 锁定版本）
+        run: uv sync --frozen
+      - name: 静态检查（ruff）
+        run: uv run ruff check .
+      - name: 类型检查（mypy）
+        run: uv run mypy
+      - name: 测试与覆盖率（pytest）
+        run: uv run pytest --cov --cov-report=term-missing

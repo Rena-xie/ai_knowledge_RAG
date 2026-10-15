@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import chromadb
+from chromadb.api.types import Metadata
 from chromadb.config import Settings as ChromaSettings
 
 COLLECTION_NAME = "child_chunks"
@@ -49,11 +50,12 @@ class VectorIndex:
         self,
         child_ids: Sequence[int],
         embeddings: Sequence[Sequence[float]],
-        metadatas: Sequence[Mapping[str, object]],
+        metadatas: Sequence[Metadata],
     ) -> None:
+        vectors: list[Sequence[float]] = [list(vector) for vector in embeddings]
         self._collection.upsert(
             ids=[str(child_id) for child_id in child_ids],
-            embeddings=[list(vector) for vector in embeddings],
+            embeddings=vectors,
             metadatas=[dict(metadata) for metadata in metadatas],
         )
 
@@ -72,8 +74,9 @@ class VectorIndex:
     def query(self, embedding: Sequence[float], *, top_k: int) -> list[VectorHit]:
         if self._collection.count() == 0:
             return []
+        query_embedding: list[Sequence[float]] = [list(embedding)]
         result = self._collection.query(
-            query_embeddings=[list(embedding)], n_results=top_k
+            query_embeddings=query_embedding, n_results=top_k
         )
         ids = result.get("ids") or [[]]
         distances = result.get("distances") or [[]]
@@ -85,4 +88,6 @@ class VectorIndex:
     def close(self) -> None:
         """释放底层客户端，确保 Windows 下临时数据目录可被删除。"""
 
-        self._client.close()
+        # chromadb 的类型标注把 PersistentClient 声明为 rust 版 ClientAPI，
+        # 运行时实际返回带 close() 的 Client（见 chromadb/api/client.py）。
+        self._client.close()  # type: ignore[attr-defined]

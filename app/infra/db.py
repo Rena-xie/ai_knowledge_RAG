@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import (
     Engine,
@@ -106,7 +107,7 @@ def create_db_engine(
     )
 
     @event.listens_for(engine, "connect")
-    def _configure_connection(dbapi_connection, _connection_record) -> None:
+    def _configure_connection(dbapi_connection: Any, _connection_record: Any) -> None:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute(f"PRAGMA busy_timeout={busy_timeout_ms}")

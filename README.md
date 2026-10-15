@@ -27,9 +27,18 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 | 运行测试 | `uv run pytest -q` |
 | 静态检查 | `uv run ruff check .` |
 | 格式化 | `uv run ruff format .` |
+| 类型检查 | `uv run mypy`（检查 `app/`、`scripts/`） |
+| 测试覆盖率 | `uv run pytest --cov --cov-report=term-missing` |
+
+CI（`.github/workflows/ci.yml`）在 push 与 PR 时执行 `ruff check`、`mypy` 与带覆盖率的
+`pytest`，覆盖率低于 85% 即失败。
 
 ## 运行约束
 
 - 必须单进程运行（`--workers 1`），原因见《项目介绍.md》10.6。
 - `.env` 与 `data/`（SQLite、Chroma 数据）不纳入 Git 管理。
 - 目录结构说明见《项目介绍.md》4.6。
+
+## 许可
+
+本项目以 [MIT 许可证](LICENSE) 开源。

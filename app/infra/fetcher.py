@@ -52,7 +52,7 @@ def resolve_host(host: str) -> list[str]:
     """解析主机的全部地址。"""
 
     infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
-    return sorted({info[4][0] for info in infos})
+    return sorted({str(info[4][0]) for info in infos})
 
 
 def order_addresses(addresses: Sequence[str]) -> list[str]:
