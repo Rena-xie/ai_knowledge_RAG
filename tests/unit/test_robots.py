@@ -1,4 +1,4 @@
-"""robots.txt 解析与路径判定（见《项目介绍.md》9.4）。"""
+"""robots.txt 解析与路径判定（见《项目开发说明_v1.md》9.4）。"""
 
 from app.infra.robots import RobotsPolicy
 

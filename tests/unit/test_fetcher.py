@@ -1,4 +1,4 @@
-"""受 SSRF 防护的抓取器（见《项目介绍.md》9.1、10.4）。"""
+"""受 SSRF 防护的抓取器（见《项目开发说明_v1.md》9.1、10.4）。"""
 
 import httpx
 import pytest

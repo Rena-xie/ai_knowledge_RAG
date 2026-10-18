@@ -1,4 +1,4 @@
-"""入库流水线（见《项目介绍.md》4.4、5.3、5.4）。"""
+"""入库流水线（见《项目开发说明_v1.md》4.4、5.3、5.4）。"""
 
 from collections.abc import Iterator, Sequence
 from pathlib import Path

@@ -1,4 +1,4 @@
-"""错误码与 HTTP 映射的完整性（见《项目介绍.md》5.2）。"""
+"""错误码与 HTTP 映射的完整性（见《项目开发说明_v1.md》5.2）。"""
 
 from app.core.errors import HTTP_STATUS_BY_ERROR_CODE, ErrorCode
 

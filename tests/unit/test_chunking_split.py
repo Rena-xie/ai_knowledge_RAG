@@ -1,4 +1,4 @@
-"""Parent/Child 切分规则（见《项目介绍.md》6.2–6.4）。"""
+"""Parent/Child 切分规则（见《项目开发说明_v1.md》6.2–6.4）。"""
 
 import pytest
 

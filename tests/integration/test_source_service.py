@@ -1,4 +1,4 @@
-"""来源管理与级联删除（见《项目介绍.md》5.3、5.5）。"""
+"""来源管理与级联删除（见《项目开发说明_v1.md》5.3、5.5）。"""
 
 from collections.abc import Iterator
 from pathlib import Path

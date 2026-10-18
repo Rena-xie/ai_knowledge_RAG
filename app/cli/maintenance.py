@@ -103,7 +103,7 @@ def run_backup(
                 "警告: 检测到服务正在运行"
                 f"（{settings.app_host}:{settings.app_port} 可连接），"
                 "Chroma 目录在服务运行中复制可能不一致；"
-                "建议停止服务后重新备份（见《项目介绍.md》5.6）。",
+                "建议停止服务后重新备份（见《项目开发说明_v1.md》5.6）。",
                 file=sys.stderr,
             )
         maintenance = build_maintenance_service(settings)

@@ -1,4 +1,4 @@
-"""FTS5 全文索引（见《项目介绍.md》5.1、7.1）。"""
+"""FTS5 全文索引（见《项目开发说明_v1.md》5.1、7.1）。"""
 
 from collections.abc import Iterator
 from pathlib import Path

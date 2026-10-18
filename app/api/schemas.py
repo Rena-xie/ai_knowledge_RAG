@@ -1,4 +1,4 @@
-"""API 请求与响应模型（见《项目介绍.md》8.1–8.3）。"""
+"""API 请求与响应模型（见《项目开发说明_v1.md》8.1–8.3）。"""
 
 from __future__ import annotations
 

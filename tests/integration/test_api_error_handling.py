@@ -1,4 +1,4 @@
-"""API 统一错误处理与请求上下文（见《项目介绍.md》8.1、8.5）。"""
+"""API 统一错误处理与请求上下文（见《项目开发说明_v1.md》8.1、8.5）。"""
 
 from collections.abc import Iterator
 

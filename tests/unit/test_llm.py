@@ -1,4 +1,4 @@
-"""LLM 客户端与提示词加载（见《项目介绍.md》7.5、10.4）。"""
+"""LLM 客户端与提示词加载（见《项目开发说明_v1.md》7.5、10.4）。"""
 
 import json
 from pathlib import Path

@@ -1,4 +1,4 @@
-"""API 层统一错误响应（见《项目介绍.md》8.1）。"""
+"""API 层统一错误响应（见《项目开发说明_v1.md》8.1）。"""
 
 from __future__ import annotations
 

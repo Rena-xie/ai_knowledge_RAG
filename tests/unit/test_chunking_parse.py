@@ -1,4 +1,4 @@
-"""Markdown 结构解析（见《项目介绍.md》6.1）。"""
+"""Markdown 结构解析（见《项目开发说明_v1.md》6.1）。"""
 
 from app.domain.chunking import Block, parse_blocks
 

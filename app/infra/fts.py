@@ -1,4 +1,4 @@
-"""FTS5 全文索引（见《项目介绍.md》5.1、7.1）。"""
+"""FTS5 全文索引（见《项目开发说明_v1.md》5.1、7.1）。"""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def _symbol_tokens(value: str) -> list[str]:
 
     仅在符号串至少一侧不是字母数字时才判定为代码符号，避免把 URL 里的
     `://` 或路径分隔符当成运算符；紧跟冒号的符号串（URL 协议）直接忽略
-    （见《项目介绍.md》7.1）。
+    （见《项目开发说明_v1.md》7.1）。
     """
 
     tokens: list[str] = []

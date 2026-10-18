@@ -1,4 +1,4 @@
-"""Markdown 结构解析与 Parent/Child 切块（见《项目介绍.md》6.1–6.4）。"""
+"""Markdown 结构解析与 Parent/Child 切块（见《项目开发说明_v1.md》6.1–6.4）。"""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""LLM 客户端与提示词加载（见《项目介绍.md》7.5、10.4）。"""
+"""LLM 客户端与提示词加载（见《项目开发说明_v1.md》7.5、10.4）。"""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def load_prompt(name: str, *, prompts_dir: Path | None = None) -> str:
 
 
 def split_prompt(text: str) -> tuple[str, str]:
-    """把提示词模板拆分为 system 与 user 两段（见《项目介绍.md》7.5）。"""
+    """把提示词模板拆分为 system 与 user 两段（见《项目开发说明_v1.md》7.5）。"""
 
     if SYSTEM_MARKER not in text or USER_MARKER not in text:
         raise ValueError("提示词模板缺少 system/user 分段标记")

@@ -1,4 +1,4 @@
-"""Chroma 向量索引（见《项目介绍.md》7.1、ADR-007）。"""
+"""Chroma 向量索引（见《项目开发说明_v1.md》7.1、ADR-007）。"""
 
 from __future__ import annotations
 

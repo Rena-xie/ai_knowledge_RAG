@@ -1,4 +1,4 @@
-"""检索与问答接口（见《项目介绍.md》8.2、8.3）。"""
+"""检索与问答接口（见《项目开发说明_v1.md》8.2、8.3）。"""
 
 import re
 from collections.abc import Iterator, Sequence

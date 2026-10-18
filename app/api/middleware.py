@@ -52,7 +52,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
 
 class BodySizeLimitMiddleware:
-    """按实际读取的字节数限制请求体大小（见《项目介绍.md》8.5）。
+    """按实际读取的字节数限制请求体大小（见《项目开发说明_v1.md》8.5）。
 
     先按 `Content-Length` 快速拒绝声明超限的请求；对未声明长度（分块编码）
     或声明不实的请求，在转发给应用前累计实际字节数，超限直接返回 413。

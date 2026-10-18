@@ -1,4 +1,4 @@
-"""检索服务：双路召回、RRF 与父级上下文（见《项目介绍.md》7.1–7.3）。"""
+"""检索服务：双路召回、RRF 与父级上下文（见《项目开发说明_v1.md》7.1–7.3）。"""
 
 from collections.abc import Iterator, Sequence
 from pathlib import Path

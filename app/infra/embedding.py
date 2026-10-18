@@ -1,4 +1,4 @@
-"""Embedding 客户端（SiliconFlow，见《项目介绍.md》10.4）。"""
+"""Embedding 客户端（SiliconFlow，见《项目开发说明_v1.md》10.4）。"""
 
 from __future__ import annotations
 

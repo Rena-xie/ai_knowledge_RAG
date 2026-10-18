@@ -1,4 +1,4 @@
-"""SQLite 权威存储层（见《项目介绍.md》5.1、5.3）。"""
+"""SQLite 权威存储层（见《项目开发说明_v1.md》5.1、5.3）。"""
 
 from __future__ import annotations
 

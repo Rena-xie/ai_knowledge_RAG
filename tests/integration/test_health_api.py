@@ -1,4 +1,4 @@
-"""健康检查接口（见《项目介绍.md》8.2、10.6）。"""
+"""健康检查接口（见《项目开发说明_v1.md》8.2、10.6）。"""
 
 from fastapi.testclient import TestClient
 

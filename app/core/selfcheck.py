@@ -1,4 +1,4 @@
-"""启动自检：目录可写、SQLite 可用且启用 FTS5（见《项目介绍.md》10.6）。"""
+"""启动自检：目录可写、SQLite 可用且启用 FTS5（见《项目开发说明_v1.md》10.6）。"""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def ensure_writable_dir(path: Path) -> None:
 
 
 def ensure_ascii_path(path: Path) -> None:
-    """确保路径解析后为纯 ASCII（见《项目介绍.md》10.6 第 5 条）。
+    """确保路径解析后为纯 ASCII（见《项目开发说明_v1.md》10.6 第 5 条）。
 
     chromadb 在含非 ASCII 字符的路径下可以写入，但重启后无法读取 HNSW
     索引（报 `Error loading hnsw index`），因此在启动阶段直接拒绝。
