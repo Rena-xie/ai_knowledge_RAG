@@ -44,6 +44,7 @@ def create_ingestion(
         payload.urls,
         client_run_id=payload.client_run_id,
         idempotency_key=request.headers.get("Idempotency-Key"),
+        force_refresh=payload.force_refresh,
         enqueue=container.ingestion_worker.submit,
     )
     response.status_code = 202 if result.accepted else 200

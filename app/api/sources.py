@@ -5,7 +5,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Query, Request, Response
 
 from app.api.deps import Container
-from app.api.schemas import SourceListResponse, SourceResponse, SubmitSourceRequest
+from app.api.schemas import (
+    IngestionCreateResponse,
+    SkippedItemResponse,
+    SourceListResponse,
+    SourceResponse,
+    SubmitSourceRequest,
+)
 from app.core.errors import AppError, ErrorCode
 
 router = APIRouter(prefix="/api/v1/sources", tags=["sources"])
@@ -61,3 +67,34 @@ def delete_source(source_id: int, request: Request) -> Response:
 
     _container(request).source_service.delete(source_id)
     return Response(status_code=204)
+
+
+@router.post("/{source_id}/refresh", response_model=IngestionCreateResponse)
+def refresh_source(
+    source_id: int, request: Request, response: Response
+) -> IngestionCreateResponse:
+    """创建来源刷新任务；内容未变化时只更新 last_checked_at。"""
+
+    container = _container(request)
+    source = container.source_service.get(source_id)
+    if source is None:
+        raise AppError(ErrorCode.NOT_FOUND, f"来源不存在: {source_id}")
+    result = container.job_service.create_job(
+        [source.url],
+        force_refresh=True,
+        enqueue=container.ingestion_worker.submit,
+    )
+    response.status_code = 202 if result.accepted else 200
+    return IngestionCreateResponse(
+        job_id=result.job_id,
+        status=result.status,
+        total=result.total,
+        accepted=result.accepted,
+        skipped=[
+            SkippedItemResponse(
+                url=item.url, reason=item.reason, source_id=item.source_id
+            )
+            for item in result.skipped
+        ],
+        created_at=result.created_at,
+    )

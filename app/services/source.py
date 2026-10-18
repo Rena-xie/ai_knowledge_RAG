@@ -187,6 +187,18 @@ class SourceService:
             source.updated_at = self._clock()
             session.commit()
 
+    def mark_checked(self, source_id: int) -> None:
+        """记录一次刷新检查时间，不改变来源状态。"""
+
+        with self._session_factory() as session:
+            source = session.get(KnowledgeSource, source_id)
+            if source is None:
+                raise AppError(ErrorCode.NOT_FOUND, f"来源不存在: {source_id}")
+            now = self._clock()
+            source.last_checked_at = now
+            source.updated_at = now
+            session.commit()
+
     def _child_ids(self, source_id: int) -> list[int]:
         with self._session_factory() as session:
             return list(

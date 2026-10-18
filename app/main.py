@@ -16,6 +16,7 @@ from app.api.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
 from app.api.query import router as query_router
 from app.api.search import router as search_router
 from app.api.sources import router as sources_router
+from app.api.stats import router as stats_router
 from app.core.errors import ErrorCode
 from app.core.logging import configure_logging
 from app.core.selfcheck import run_startup_checks
@@ -65,6 +66,7 @@ def create_app() -> FastAPI:
     app.include_router(ingestions_router)
     app.include_router(search_router)
     app.include_router(query_router)
+    app.include_router(stats_router)
     return app
 
 

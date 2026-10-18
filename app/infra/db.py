@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     Engine,
     ForeignKey,
     Index,
@@ -29,7 +30,7 @@ from sqlalchemy.orm import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_BUSY_TIMEOUT_MS = 5000
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 
 
 class Base(DeclarativeBase):
@@ -99,6 +100,9 @@ class IngestionJobItem(Base):
     url: Mapped[str] = mapped_column(Text, nullable=False)
     canonical_url: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False)
+    force_refresh: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     source_id: Mapped[int | None] = mapped_column(
         ForeignKey("knowledge_sources.id", ondelete="SET NULL")
     )
@@ -216,20 +220,26 @@ def _migrate_schema(engine: Engine) -> None:
             return
         version = meta.value
 
-    if version == SCHEMA_VERSION:
-        return
-    if version != "1":
+    if version == "1":
+        with Session(engine) as session:
+            meta = session.get(IndexMeta, "schema_version")
+            if meta is not None:
+                meta.value = "2"
+                session.commit()
+        version = "2"
+    if version == "2":
+        _ensure_force_refresh(engine)
+        with Session(engine) as session:
+            meta = session.get(IndexMeta, "schema_version")
+            if meta is not None:
+                meta.value = SCHEMA_VERSION
+                session.commit()
+        version = SCHEMA_VERSION
+    if version != SCHEMA_VERSION:
         logger.warning(
             "未知 schema_version，保持原值",
             extra={"schema_version": version},
         )
-        return
-
-    with Session(engine) as session:
-        meta = session.get(IndexMeta, "schema_version")
-        if meta is not None:
-            meta.value = SCHEMA_VERSION
-            session.commit()
 
 
 def _ensure_last_checked_at(engine: Engine) -> None:
@@ -240,4 +250,19 @@ def _ensure_last_checked_at(engine: Engine) -> None:
         with engine.begin() as connection:
             connection.execute(
                 text("ALTER TABLE knowledge_sources ADD COLUMN last_checked_at TEXT")
+            )
+
+
+def _ensure_force_refresh(engine: Engine) -> None:
+    columns = {
+        column["name"]
+        for column in inspect(engine).get_columns("ingestion_job_items")
+    }
+    if "force_refresh" not in columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE ingestion_job_items "
+                    "ADD COLUMN force_refresh BOOLEAN NOT NULL DEFAULT 0"
+                )
             )

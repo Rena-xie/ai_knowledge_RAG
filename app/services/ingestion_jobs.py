@@ -9,7 +9,9 @@ import time
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
+from typing import TypedDict
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -122,6 +124,27 @@ class JobSummary:
     finished_at: str | None
 
 
+class IngestionStats(TypedDict):
+    window_hours: int
+    total: int
+    queued: int
+    running: int
+    completed: int
+    partial: int
+    failed: int
+    average_duration_ms: float | None
+
+
+def _parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
 class JobService:
     """管理 job 的创建、查询、执行与恢复。
 
@@ -149,6 +172,7 @@ class JobService:
         *,
         client_run_id: str | None = None,
         idempotency_key: str | None = None,
+        force_refresh: bool = False,
         enqueue: Callable[[str], None],
     ) -> JobCreateResult:
         """创建 job；URL 去重、非法 URL 逐条记为 failed。"""
@@ -180,7 +204,11 @@ class JobService:
 
         for raw, canonical in valid:
             source = existing_sources.get(canonical)
-            if source is not None and source.status == SourceStatus.COMPLETED.value:
+            if (
+                source is not None
+                and source.status == SourceStatus.COMPLETED.value
+                and not force_refresh
+            ):
                 items.append(
                     self._make_item(
                         job_id=job_id,
@@ -226,6 +254,7 @@ class JobService:
                     canonical=canonical,
                     status=ItemStatus.QUEUED,
                     now=now,
+                    force_refresh=force_refresh,
                 )
             )
             accepted += 1
@@ -349,6 +378,45 @@ class JobService:
             )
             return [self._to_summary(row) for row in rows], total
 
+    def stats(self, *, since_hours: int = 24) -> IngestionStats:
+        """返回近 N 小时的 job 统计与平均总耗时。"""
+
+        cutoff = datetime.now(UTC) - timedelta(hours=since_hours)
+        with self._session_factory() as session:
+            jobs = list(session.scalars(select(IngestionJob)).all())
+        recent = [
+            job
+            for job in jobs
+            if (created := _parse_iso(job.created_at)) is not None
+            and created >= cutoff
+        ]
+        counts = {status.value: 0 for status in JobStatus}
+        for job in recent:
+            if job.status in counts:
+                counts[job.status] += 1
+        durations: list[float] = []
+        for job in recent:
+            if job.status not in TERMINAL_JOB_STATUSES:
+                continue
+            started = _parse_iso(job.started_at)
+            finished = _parse_iso(job.finished_at)
+            if started is not None and finished is not None:
+                durations.append((finished - started).total_seconds() * 1000)
+        return IngestionStats(
+            window_hours=since_hours,
+            total=len(recent),
+            queued=counts.get("queued", 0),
+            running=counts.get("running", 0),
+            completed=counts.get("completed", 0),
+            partial=counts.get("partial", 0),
+            failed=counts.get("failed", 0),
+            average_duration_ms=(
+                round(sum(durations) / len(durations), 2)
+                if durations
+                else None
+            ),
+        )
+
     def retry_job(
         self, job_id: str, *, enqueue: Callable[[str], None]
     ) -> JobCreateResult:
@@ -358,21 +426,27 @@ class JobService:
             job = session.get(IngestionJob, job_id)
             if job is None:
                 raise AppError(ErrorCode.JOB_NOT_FOUND, f"任务不存在: {job_id}")
-            failed_urls = list(
-                session.scalars(
-                    select(IngestionJobItem.url)
-                    .where(
+            client_run_id = job.client_run_id
+            failed_items = list(
+                session.execute(
+                    select(
+                        IngestionJobItem.url, IngestionJobItem.force_refresh
+                    ).where(
                         IngestionJobItem.job_id == job_id,
                         IngestionJobItem.status == ItemStatus.FAILED.value,
                     )
                     .order_by(IngestionJobItem.id)
                 ).all()
             )
-            client_run_id = job.client_run_id
+        failed_urls = [str(row[0]) for row in failed_items]
         if not failed_urls:
             raise AppError(ErrorCode.JOB_NOT_RETRYABLE, "该任务没有可重试的失败项")
+        force_refresh = any(bool(row[1]) for row in failed_items)
         return self.create_job(
-            failed_urls, client_run_id=client_run_id, enqueue=enqueue
+            failed_urls,
+            client_run_id=client_run_id,
+            force_refresh=force_refresh,
+            enqueue=enqueue,
         )
 
     def recover(self, *, enqueue: Callable[[str], None]) -> tuple[str, ...]:
@@ -444,6 +518,13 @@ class JobService:
             job.status = JobStatus.RUNNING.value
             if job.started_at is None:
                 job.started_at = self._clock()
+            logger.info(
+                "ingestion_job_started",
+                extra={
+                    "job_id": job_id,
+                    "client_run_id": job.client_run_id,
+                },
+            )
             session.commit()
 
         while True:
@@ -474,8 +555,14 @@ class JobService:
                 session.commit()
                 item_id = item.id
                 url = item.url
+                force_refresh = bool(item.force_refresh)
 
-            self._execute_item(job_id=job_id, item_id=item_id, url=url)
+            self._execute_item(
+                job_id=job_id,
+                item_id=item_id,
+                url=url,
+                force_refresh=force_refresh,
+            )
             self._refresh_job(job_id)
 
         self._refresh_job(job_id)
@@ -500,9 +587,18 @@ class JobService:
                 item.finished_at = now
             session.commit()
 
-    def _execute_item(self, *, job_id: str, item_id: int, url: str) -> None:
+    def _execute_item(
+        self,
+        *,
+        job_id: str,
+        item_id: int,
+        url: str,
+        force_refresh: bool,
+    ) -> None:
         try:
-            result = self._ingestion_service.ingest(url)
+            result = self._ingestion_service.ingest(
+                url, force_refresh=force_refresh
+            )
         except AppError as error:
             self._finish_item(
                 job_id=job_id,
@@ -729,12 +825,14 @@ class JobService:
         error_code: ErrorCode | None = None,
         error_message: str | None = None,
         finished: bool = False,
+        force_refresh: bool = False,
     ) -> IngestionJobItem:
         return IngestionJobItem(
             job_id=job_id,
             url=url,
             canonical_url=canonical,
             status=status.value,
+            force_refresh=force_refresh,
             source_id=source_id,
             title=title,
             error_code=error_code.value if error_code else None,

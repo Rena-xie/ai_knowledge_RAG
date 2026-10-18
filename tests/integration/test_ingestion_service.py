@@ -77,6 +77,21 @@ class FakeEmbedder:
         return [[float(index + 1), 0.0, 0.0] for index, _ in enumerate(texts)]
 
 
+class MutableFetcher:
+    """可切换 HTML 的抓取替身，用于刷新测试。"""
+
+    def __init__(self, html: str) -> None:
+        self.html = html
+        self.calls = 0
+
+    def fetch(self, url: str) -> FetchResult:
+        self.calls += 1
+        return FetchResult(url=url, content_type="text/html", html=self.html)
+
+    def close(self) -> None:
+        return None
+
+
 def build_settings(**overrides) -> Settings:
     values: dict[str, object] = {
         "embedding_api_base": "https://example.invalid/v1",
@@ -345,3 +360,128 @@ def test_ingest_uses_page_title_as_fallback_heading_path(
     assert result.status == "completed"
     assert children
     assert {child.heading_path for child in children} == {"教程页"}
+
+
+def child_texts(env: dict[str, object], source_id: int) -> list[str]:
+    with env["session_factory"]() as session:
+        return list(
+            session.scalars(
+                select(ChildChunk.text).where(
+                    ChildChunk.source_id == source_id
+                )
+            ).all()
+        )
+
+
+def child_ids(env: dict[str, object], source_id: int) -> set[int]:
+    with env["session_factory"]() as session:
+        return set(
+            session.scalars(
+                select(ChildChunk.id).where(
+                    ChildChunk.source_id == source_id
+                )
+            ).all()
+        )
+
+
+def test_refresh_replaces_content_and_indexes(env: dict[str, object]) -> None:
+    fetcher = MutableFetcher(ARTICLE)
+    embedder = FakeEmbedder()
+    service = build_service(env, fetcher=fetcher, embedder=embedder)
+    first = service.ingest("https://example.com/a")
+    old_ids = child_ids(env, first.source_id)
+    old_hash = env["source_service"].get(first.source_id).content_hash
+
+    fetcher.html = ARTICLE.replace(
+        "BM25 是一种稀疏检索算法", "BM25 是一种新的稀疏检索算法"
+    )
+    refreshed = service.ingest(
+        "https://example.com/a", force_refresh=True
+    )
+
+    assert refreshed.changed is True
+    assert refreshed.child_count == count_rows(env, ChildChunk)
+    assert embedder.calls == 2
+    new_ids = child_ids(env, first.source_id)
+    assert old_ids.isdisjoint(new_ids)
+    assert any(
+        "新的稀疏检索算法" in text for text in child_texts(env, first.source_id)
+    )
+    source = env["source_service"].get(first.source_id)
+    assert source.status == "completed"
+    assert source.content_hash != old_hash
+    assert source.last_checked_at is not None
+    assert env["vector"].count() == refreshed.child_count
+
+
+def test_refresh_embedding_failure_keeps_old_content(
+    env: dict[str, object],
+) -> None:
+    fetcher = MutableFetcher(ARTICLE)
+    embedder = FakeEmbedder()
+    service = build_service(env, fetcher=fetcher, embedder=embedder)
+    first = service.ingest("https://example.com/a")
+    old_texts = child_texts(env, first.source_id)
+    old_count = count_rows(env, ChildChunk)
+
+    fetcher.html = ARTICLE.replace(
+        "BM25 是一种稀疏检索算法", "BM25 是一种新的稀疏检索算法"
+    )
+    embedder.fail = True
+    with pytest.raises(AppError) as excinfo:
+        service.ingest("https://example.com/a", force_refresh=True)
+
+    assert excinfo.value.code == ErrorCode.EMBEDDING_FAILED
+    assert child_texts(env, first.source_id) == old_texts
+    assert count_rows(env, ChildChunk) == old_count
+    assert env["vector"].count() == old_count
+    assert env["source_service"].get(first.source_id).status == "completed"
+
+
+def test_refresh_unchanged_content_skips_embedding(
+    env: dict[str, object],
+) -> None:
+    fetcher = MutableFetcher(ARTICLE)
+    embedder = FakeEmbedder()
+    service = build_service(env, fetcher=fetcher, embedder=embedder)
+    first = service.ingest("https://example.com/a")
+    old_texts = child_texts(env, first.source_id)
+
+    refreshed = service.ingest(
+        "https://example.com/a", force_refresh=True
+    )
+
+    assert refreshed.changed is False
+    assert embedder.calls == 1
+    assert child_texts(env, first.source_id) == old_texts
+    source = env["source_service"].get(first.source_id)
+    assert source.status == "completed"
+    assert source.last_checked_at is not None
+
+
+def test_refresh_index_failure_rolls_back_old_data(
+    env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fetcher = MutableFetcher(ARTICLE)
+    service = build_service(env, fetcher=fetcher)
+    first = service.ingest("https://example.com/a")
+    old_texts = child_texts(env, first.source_id)
+    old_ids = child_ids(env, first.source_id)
+    old_count = env["vector"].count()
+
+    fetcher.html = ARTICLE.replace(
+        "BM25 是一种稀疏检索算法", "BM25 是一种新的稀疏检索算法"
+    )
+
+    def fail_upsert(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("vector unavailable")
+
+    monkeypatch.setattr(env["vector"], "upsert", fail_upsert)
+    with pytest.raises(AppError):
+        service.ingest("https://example.com/a", force_refresh=True)
+
+    assert child_texts(env, first.source_id) == old_texts
+    assert child_ids(env, first.source_id) == old_ids
+    assert env["vector"].count() == old_count
+    assert env["source_service"].get(first.source_id).status == "completed"
+    assert set(env["fts"].search("BM25", top_k=10)) & old_ids

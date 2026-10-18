@@ -225,10 +225,15 @@ def test_migrates_v1_database(tmp_path: Path) -> None:
     assert "last_checked_at" in columns
     tables = set(inspect(engine).get_table_names())
     assert {"ingestion_jobs", "ingestion_job_items"} <= tables
+    item_columns = {
+        column["name"]
+        for column in inspect(engine).get_columns("ingestion_job_items")
+    }
+    assert "force_refresh" in item_columns
 
     session_factory = create_session_factory(engine)
     with session_factory() as session:
-        assert session.get(IndexMeta, "schema_version").value == "2"
+        assert session.get(IndexMeta, "schema_version").value == SCHEMA_VERSION
         source = session.get(KnowledgeSource, 1)
         assert source is not None
         assert source.title == "旧来源"

@@ -39,6 +39,7 @@ class IngestResult:
     status: str
     triggered: bool
     child_count: int
+    changed: bool = True
 
 
 class IngestionService:
@@ -70,10 +71,24 @@ class IngestionService:
         self._chunker_version = chunker_version
         self._lock = threading.Lock()
 
-    def ingest(self, url: str) -> IngestResult:
+    def ingest(self, url: str, *, force_refresh: bool = False) -> IngestResult:
         submit = self._source_service.get_or_create(url)
         source_id = submit.source.id
         if not submit.triggered:
+            if (
+                force_refresh
+                and str(submit.source.status) == SourceStatus.COMPLETED.value
+            ):
+                if not self._lock.acquire(
+                    timeout=self._settings.ingest_lock_timeout_s
+                ):
+                    raise AppError(
+                        ErrorCode.INGEST_BUSY, "已有入库任务在执行"
+                    )
+                try:
+                    return self._refresh(source_id, url)
+                finally:
+                    self._lock.release()
             return IngestResult(
                 source_id=source_id,
                 status=str(submit.source.status),
@@ -133,13 +148,35 @@ class IngestionService:
                 extra={"source_id": source_id, "stage": "ingest_lock"},
             )
 
-    def _run_pipeline(self, source_id: int, url: str) -> IngestResult:
+    def _refresh(self, source_id: int, url: str) -> IngestResult:
+        """刷新已完成来源：先完成外部工作，再在事务内替换数据。
+
+        任何抓取/解析/切块/Embedding 失败都不会触碰旧数据；索引写入失败会
+        回滚关系数据并清理新索引，旧索引保持不变。
+        """
+
         deadline = time.monotonic() + self._settings.ingest_timeout_s
         try:
-            self._source_service.mark_status(source_id, SourceStatus.PROCESSING)
             fetched = self._fetcher.fetch(url)
             self._check_deadline(deadline)
             document = self._parser(fetched.html, url=fetched.url)
+            new_hash = hashlib.sha256(
+                document.markdown.encode("utf-8")
+            ).hexdigest()
+            current = self._source_service.get(source_id)
+            if current is None:
+                raise AppError(
+                    ErrorCode.NOT_FOUND, f"来源不存在: {source_id}"
+                )
+            if current.content_hash == new_hash:
+                self._source_service.mark_checked(source_id)
+                return IngestResult(
+                    source_id=source_id,
+                    status=SourceStatus.COMPLETED.value,
+                    triggered=True,
+                    child_count=self._child_count(source_id),
+                    changed=False,
+                )
             parents = chunk_markdown(
                 document.markdown,
                 parent_max_chars=self._settings.parent_max_chars,
@@ -151,12 +188,116 @@ class IngestionService:
             if not parents:
                 raise AppError(ErrorCode.PARSE_EMPTY_CONTENT, "切块结果为空")
             self._check_deadline(deadline)
-            child_ids, embedding_texts = self._persist_chunks(source_id, parents)
+            embedding_texts = [
+                child.embedding_text
+                for parent in parents
+                for child in parent.children
+            ]
+            embeddings = self._embedder.embed(
+                embedding_texts,
+                budget_s=deadline - time.monotonic(),
+            )
             self._check_deadline(deadline)
+
+            old_child_ids = self._child_ids(source_id)
+            parent_max, child_max = self._max_parent_child_ids()
+            new_child_ids: list[int] = []
+            try:
+                with self._session_factory() as session:
+                    try:
+                        session.execute(
+                            delete(ChildChunk).where(
+                                ChildChunk.source_id == source_id
+                            )
+                        )
+                        session.execute(
+                            delete(ParentChunk).where(
+                                ParentChunk.source_id == source_id
+                            )
+                        )
+                        session.flush()
+                        new_child_ids, inserted_texts = self._insert_chunks(
+                            session,
+                            source_id,
+                            parents,
+                            start_parent_id=parent_max + 1,
+                            start_child_id=child_max + 1,
+                        )
+                        fts_connection = session.connection()
+                        for child_id, text in zip(
+                            new_child_ids, inserted_texts, strict=True
+                        ):
+                            self._fts_index.upsert(
+                                child_id, text, connection=fts_connection
+                            )
+                        self._vector_index.upsert(
+                            new_child_ids,
+                            embeddings,
+                            [
+                                {"source_id": source_id}
+                                for _ in new_child_ids
+                            ],
+                        )
+                        self._apply_source_success(
+                            session, source_id, document, new_hash
+                        )
+                        session.commit()
+                    except Exception:
+                        session.rollback()
+                        raise
+            except Exception:
+                self._delete_child_indexes(new_child_ids)
+                raise
+
+            # 新数据已提交；旧索引清理失败不影响本次刷新结果，可重建清理。
+            self._delete_child_indexes(old_child_ids)
+            return IngestResult(
+                source_id=source_id,
+                status=SourceStatus.COMPLETED.value,
+                triggered=True,
+                child_count=len(new_child_ids),
+                changed=True,
+            )
+        except AppError:
+            raise
+        except Exception as error:
+            raise AppError(_error_code(error), str(error)) from error
+
+    def _run_pipeline(self, source_id: int, url: str) -> IngestResult:
+        deadline = time.monotonic() + self._settings.ingest_timeout_s
+        try:
+            self._source_service.mark_status(source_id, SourceStatus.PROCESSING)
+            stage = time.perf_counter()
+            fetched = self._fetcher.fetch(url)
+            self._log_stage(source_id, "fetch", stage)
+            self._check_deadline(deadline)
+            stage = time.perf_counter()
+            document = self._parser(fetched.html, url=fetched.url)
+            self._log_stage(source_id, "parse", stage)
+            stage = time.perf_counter()
+            parents = chunk_markdown(
+                document.markdown,
+                parent_max_chars=self._settings.parent_max_chars,
+                child_target_chars=self._settings.child_target_chars,
+                child_max_chars=self._settings.child_max_chars,
+                child_overlap_chars=self._settings.child_overlap_chars,
+                fallback_heading_path=document.title,
+            )
+            if not parents:
+                raise AppError(ErrorCode.PARSE_EMPTY_CONTENT, "切块结果为空")
+            self._log_stage(source_id, "chunk", stage)
+            self._check_deadline(deadline)
+            stage = time.perf_counter()
+            child_ids, embedding_texts = self._persist_chunks(source_id, parents)
+            self._log_stage(source_id, "persist", stage)
+            self._check_deadline(deadline)
+            stage = time.perf_counter()
             embeddings = self._embedder.embed(
                 embedding_texts, budget_s=deadline - time.monotonic()
             )
+            self._log_stage(source_id, "embed", stage)
             self._check_deadline(deadline)
+            stage = time.perf_counter()
             for child_id, text in zip(child_ids, embedding_texts, strict=True):
                 self._fts_index.upsert(child_id, text)
             self._vector_index.upsert(
@@ -164,6 +305,7 @@ class IngestionService:
                 embeddings,
                 [{"source_id": source_id} for _ in child_ids],
             )
+            self._log_stage(source_id, "index", stage)
             self._check_deadline(deadline)
             self._finish(source_id, document)
             return IngestResult(
@@ -186,8 +328,6 @@ class IngestionService:
     def _persist_chunks(
         self, source_id: int, parents: Sequence[DomainParent]
     ) -> tuple[list[int], list[str]]:
-        child_ids: list[int] = []
-        embedding_texts: list[str] = []
         with self._session_factory() as session:
             session.execute(
                 delete(ChildChunk).where(ChildChunk.source_id == source_id)
@@ -195,50 +335,105 @@ class IngestionService:
             session.execute(
                 delete(ParentChunk).where(ParentChunk.source_id == source_id)
             )
-            for parent in parents:
-                parent_row = ParentChunk(
-                    source_id=source_id,
-                    ordinal=parent.ordinal,
-                    heading_path=parent.heading_path,
-                    content=parent.content,
-                )
-                session.add(parent_row)
-                session.flush()
-                for child in parent.children:
-                    child_row = ChildChunk(
-                        source_id=source_id,
-                        parent_id=parent_row.id,
-                        ordinal=child.ordinal,
-                        text=child.text,
-                        embedding_text=child.embedding_text,
-                        content_type=child.content_type,
-                        heading_path=child.heading_path,
-                    )
-                    session.add(child_row)
-                    session.flush()
-                    child_ids.append(child_row.id)
-                    embedding_texts.append(child.embedding_text)
+            session.flush()
+            child_ids, embedding_texts = self._insert_chunks(
+                session, source_id, parents
+            )
             session.commit()
+        return child_ids, embedding_texts
+
+    @staticmethod
+    def _insert_chunks(
+        session: Session,
+        source_id: int,
+        parents: Sequence[DomainParent],
+        *,
+        start_parent_id: int | None = None,
+        start_child_id: int | None = None,
+    ) -> tuple[list[int], list[str]]:
+        child_ids: list[int] = []
+        embedding_texts: list[str] = []
+        next_parent_id = start_parent_id
+        next_child_id = start_child_id
+        for parent in parents:
+            parent_row = ParentChunk(
+                source_id=source_id,
+                ordinal=parent.ordinal,
+                heading_path=parent.heading_path,
+                content=parent.content,
+            )
+            if next_parent_id is not None:
+                parent_row.id = next_parent_id
+                next_parent_id += 1
+            session.add(parent_row)
+            session.flush()
+            for child in parent.children:
+                child_row = ChildChunk(
+                    source_id=source_id,
+                    parent_id=parent_row.id,
+                    ordinal=child.ordinal,
+                    text=child.text,
+                    embedding_text=child.embedding_text,
+                    content_type=child.content_type,
+                    heading_path=child.heading_path,
+                )
+                if next_child_id is not None:
+                    child_row.id = next_child_id
+                    next_child_id += 1
+                session.add(child_row)
+                session.flush()
+                child_ids.append(child_row.id)
+                embedding_texts.append(child.embedding_text)
         return child_ids, embedding_texts
 
     def _finish(self, source_id: int, document: ParsedDocument) -> None:
         with self._session_factory() as session:
-            source = session.get(KnowledgeSource, source_id)
-            if source is None:
-                raise AppError(ErrorCode.NOT_FOUND, f"来源不存在: {source_id}")
-            now = self._clock()
-            source.status = SourceStatus.COMPLETED.value
-            source.title = document.title
-            source.content_hash = hashlib.sha256(
-                document.markdown.encode("utf-8")
-            ).hexdigest()
-            source.chunker_version = self._chunker_version
-            source.embedding_model = self._settings.embedding_model
-            source.error_code = None
-            source.error_message = None
-            source.processed_at = now
-            source.updated_at = now
+            self._apply_source_success(
+                session,
+                source_id,
+                document,
+                hashlib.sha256(
+                    document.markdown.encode("utf-8")
+                ).hexdigest(),
+            )
             session.commit()
+
+    def _apply_source_success(
+        self,
+        session: Session,
+        source_id: int,
+        document: ParsedDocument,
+        content_hash: str,
+    ) -> None:
+        source = session.get(KnowledgeSource, source_id)
+        if source is None:
+            raise AppError(ErrorCode.NOT_FOUND, f"来源不存在: {source_id}")
+        now = self._clock()
+        source.status = SourceStatus.COMPLETED.value
+        source.title = document.title
+        source.content_hash = content_hash
+        source.chunker_version = self._chunker_version
+        source.embedding_model = self._settings.embedding_model
+        source.error_code = None
+        source.error_message = None
+        source.processed_at = now
+        source.last_checked_at = now
+        source.updated_at = now
+
+    def _delete_child_indexes(self, child_ids: Sequence[int]) -> None:
+        if not child_ids:
+            return
+        for stage, action in (
+            ("vector", lambda: self._vector_index.delete_many(child_ids)),
+            ("fts", lambda: self._fts_index.delete_many(child_ids)),
+        ):
+            try:
+                action()
+            except Exception:
+                logger.warning(
+                    "清理子块索引失败",
+                    extra={"stage": stage, "count": len(child_ids)},
+                )
 
     def _compensate(self, source_id: int) -> None:
         child_ids = self._child_ids(source_id)
@@ -288,10 +483,33 @@ class IngestionService:
                 ).all()
             )
 
+    def _max_parent_child_ids(self) -> tuple[int, int]:
+        with self._session_factory() as session:
+            parent_max = session.scalar(
+                select(func.max(ParentChunk.id))
+            )
+            child_max = session.scalar(
+                select(func.max(ChildChunk.id))
+            )
+            return int(parent_max or 0), int(child_max or 0)
+
     @staticmethod
     def _check_deadline(deadline: float) -> None:
         if time.monotonic() > deadline:
             raise AppError(ErrorCode.INGEST_TIMEOUT, "入库超过时间预算")
+
+    @staticmethod
+    def _log_stage(source_id: int, stage: str, started: float) -> None:
+        logger.info(
+            "ingestion_stage",
+            extra={
+                "source_id": source_id,
+                "stage": stage,
+                "duration_ms": round(
+                    (time.perf_counter() - started) * 1000, 2
+                ),
+            },
+        )
 
 
 def _error_code(error: Exception) -> ErrorCode:

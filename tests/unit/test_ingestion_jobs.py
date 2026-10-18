@@ -45,7 +45,9 @@ class FakeIngestion:
         self._results = results
         self.calls: list[str] = []
 
-    def ingest(self, url: str) -> IngestResult:
+    def ingest(
+        self, url: str, *, force_refresh: bool = False
+    ) -> IngestResult:
         self.calls.append(url)
         result = self._results[url]
         if isinstance(result, Exception):

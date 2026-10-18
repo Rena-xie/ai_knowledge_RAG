@@ -7,6 +7,7 @@ from collections.abc import Iterable
 
 import jieba
 from sqlalchemy import Engine, text
+from sqlalchemy.engine import Connection
 
 jieba.setLogLevel(logging.WARNING)
 
@@ -104,31 +105,58 @@ class FtsIndex:
             rows = connection.execute(text("SELECT child_id FROM child_chunks_fts"))
             return [int(row[0]) for row in rows]
 
-    def upsert(self, child_id: int, embedding_text: str) -> None:
+    def upsert(
+        self,
+        child_id: int,
+        embedding_text: str,
+        *,
+        connection: Connection | None = None,
+    ) -> None:
         tokens = tokenize(embedding_text)
+        if connection is not None:
+            self._upsert_on(connection, child_id, tokens)
+            return
         with self._engine.begin() as connection:
-            connection.execute(
-                text("DELETE FROM child_chunks_fts WHERE child_id = :child_id"),
-                {"child_id": child_id},
-            )
-            connection.execute(
-                text(
-                    "INSERT INTO child_chunks_fts (child_id, embedding_text) "
-                    "VALUES (:child_id, :tokens)"
-                ),
-                {"child_id": child_id, "tokens": tokens},
-            )
+            self._upsert_on(connection, child_id, tokens)
 
-    def delete(self, child_id: int) -> None:
+    @staticmethod
+    def _upsert_on(connection: Connection, child_id: int, tokens: str) -> None:
+        connection.execute(
+            text("DELETE FROM child_chunks_fts WHERE child_id = :child_id"),
+            {"child_id": child_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO child_chunks_fts (child_id, embedding_text) "
+                "VALUES (:child_id, :tokens)"
+            ),
+            {"child_id": child_id, "tokens": tokens},
+        )
+
+    def delete(
+        self, child_id: int, *, connection: Connection | None = None
+    ) -> None:
+        if connection is not None:
+            self._delete_on(connection, child_id)
+            return
         with self._engine.begin() as connection:
-            connection.execute(
-                text("DELETE FROM child_chunks_fts WHERE child_id = :child_id"),
-                {"child_id": child_id},
-            )
+            self._delete_on(connection, child_id)
 
-    def delete_many(self, child_ids: Iterable[int]) -> None:
+    @staticmethod
+    def _delete_on(connection: Connection, child_id: int) -> None:
+        connection.execute(
+            text("DELETE FROM child_chunks_fts WHERE child_id = :child_id"),
+            {"child_id": child_id},
+        )
+
+    def delete_many(
+        self,
+        child_ids: Iterable[int],
+        *,
+        connection: Connection | None = None,
+    ) -> None:
         for child_id in child_ids:
-            self.delete(child_id)
+            self.delete(child_id, connection=connection)
 
     def search(self, query: str, *, top_k: int) -> list[int]:
         """按 BM25 召回，多词之间使用 OR 语义（召回优先，排序由 BM25 决定）。"""

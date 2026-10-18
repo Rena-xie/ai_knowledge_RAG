@@ -210,3 +210,44 @@ def test_list_ingestions(client: TestClient) -> None:
     body = response.json()
     assert body["total"] == 1
     assert body["items"][0]["job_id"].startswith("job_")
+
+
+def test_force_refresh_and_source_refresh_endpoint(
+    client: TestClient,
+) -> None:
+    first = client.post(
+        "/api/v1/ingestions", json={"urls": ["https://example.com/a"]}
+    )
+    job = wait_for_job(client, first.json()["job_id"])
+    source_id = job["items"][0]["source_id"]
+
+    refreshed = client.post(
+        "/api/v1/ingestions",
+        json={"urls": ["https://example.com/a"], "force_refresh": True},
+    )
+    assert refreshed.status_code == 202
+    assert refreshed.json()["accepted"] == 1
+    wait_for_job(client, refreshed.json()["job_id"])
+
+    source_refresh = client.post(
+        f"/api/v1/sources/{source_id}/refresh"
+    )
+    assert source_refresh.status_code == 202
+    assert source_refresh.json()["accepted"] == 1
+    source_job = wait_for_job(client, source_refresh.json()["job_id"])
+    assert source_job["status"] == "completed"
+
+
+def test_ingestion_stats(client: TestClient) -> None:
+    created = client.post(
+        "/api/v1/ingestions", json={"urls": ["https://example.com/a"]}
+    ).json()
+    wait_for_job(client, created["job_id"])
+
+    response = client.get("/api/v1/stats/ingestions?since_hours=24")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] >= 1
+    assert body["completed"] >= 1
+    assert body["queue_depth"] == 0
