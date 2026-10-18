@@ -296,6 +296,23 @@ curl.exe -X POST http://127.0.0.1:8000/api/v1/query `
 > 示例使用单引号包裹 JSON（PowerShell 7 / bash 通用）。Windows PowerShell 5.1 若出现
 > 引号被吞，改用 `-d "{\"url\":\"https://example.com\"}"` 或直接在 `/docs` 页面调试。
 
+### 4.1 异步入库（v2）
+
+v2 新增批量异步入库接口，适合 Agent 或脚本一次提交多个链接：
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/v1/ingestions `
+  -H "Content-Type: application/json" `
+  -d '{"urls":["https://example.com/a","https://example.com/b"]}'
+
+curl.exe "http://127.0.0.1:8000/api/v1/ingestions/{job_id}?wait_seconds=10"
+```
+
+- 有实际入库项返回 `202`，全部重复或无需处理返回 `200`。
+- job 状态为 `queued / running / completed / partial / failed`，失败项带 `error_code`。
+- 可选 `Idempotency-Key` 请求头，防止重复提交。
+- 与 Learning Agent 同机运行时，建议 RAG 使用 `8001`、Agent 使用 `8000`。
+
 ### 5. 常用运维命令
 
 ```powershell
