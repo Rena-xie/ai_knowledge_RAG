@@ -87,9 +87,16 @@ def test_reports_metrics() -> None:
     assert report.insufficient_accuracy == pytest.approx(1.0)
     assert [result.recall_hit for result in report.results] == [True, False, None]
     assert report.precision_at_5 == pytest.approx(0.1666)
+    assert report.mrr_at_10 == pytest.approx(0.1666)
+    assert report.ndcg_at_10 == pytest.approx(0.25)
     assert report.results[0].precision_at_5 == pytest.approx(0.3333)
+    assert report.results[0].mrr_at_10 == pytest.approx(0.3333)
+    assert report.results[0].ndcg_at_10 == pytest.approx(0.5)
     assert report.results[1].precision_at_5 == pytest.approx(0.0)
+    assert report.results[1].mrr_at_10 == pytest.approx(0.0)
+    assert report.results[1].ndcg_at_10 == pytest.approx(0.0)
     assert report.results[2].precision_at_5 is None
+    assert report.category_metrics["专有名词"]["recall_at_5"] == 1.0
 
 
 def test_report_serializes_to_dict() -> None:
@@ -103,6 +110,8 @@ def test_report_serializes_to_dict() -> None:
     assert payload["recall_at_5"] == 1.0
     assert payload["results"][0]["question_id"] == "q1"
     assert payload["precision_at_5"] == pytest.approx(0.3333)
+    assert payload["mrr_at_10"] == 1.0
+    assert payload["ndcg_at_10"] == 1.0
 
 
 def test_metrics_are_none_without_denominator() -> None:

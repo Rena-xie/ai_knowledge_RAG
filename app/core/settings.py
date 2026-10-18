@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     final_top_k: int = 8
     route_head_reserve: int = 1
     min_dense_similarity: float = 0.58
+    rerank_enabled: bool = False
+    rerank_api_base: str = ""
+    rerank_api_key: str = ""
+    rerank_model: str = "BAAI/bge-reranker-v2-m3"
+    rerank_top_n: int = 20
+    rerank_timeout_s: int = 10
+    rerank_max_retries: int = 1
 
     # 切块与上下文
     parent_max_chars: int = 3000

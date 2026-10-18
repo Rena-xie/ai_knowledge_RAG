@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,6 +38,8 @@ class QuestionResult:
     citation_count: int
     max_similarity: float = 0.0
     precision_at_5: float | None = None
+    mrr_at_10: float | None = None
+    ndcg_at_10: float | None = None
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,9 @@ class EvalReport:
     citation_validity: float | None
     insufficient_accuracy: float | None
     precision_at_5: float | None
+    mrr_at_10: float | None
+    ndcg_at_10: float | None
+    category_metrics: dict[str, dict[str, object]]
     results: tuple[QuestionResult, ...]
 
     def as_dict(self) -> dict[str, Any]:
@@ -57,6 +63,9 @@ class EvalReport:
             "citation_validity": self.citation_validity,
             "insufficient_accuracy": self.insufficient_accuracy,
             "precision_at_5": self.precision_at_5,
+            "mrr_at_10": self.mrr_at_10,
+            "ndcg_at_10": self.ndcg_at_10,
+            "category_metrics": self.category_metrics,
             "results": [
                 {
                     "question_id": result.question_id,
@@ -68,6 +77,8 @@ class EvalReport:
                     "citation_count": result.citation_count,
                     "max_similarity": result.max_similarity,
                     "precision_at_5": result.precision_at_5,
+                    "mrr_at_10": result.mrr_at_10,
+                    "ndcg_at_10": result.ndcg_at_10,
                 }
                 for result in self.results
             ],
@@ -92,26 +103,33 @@ class EvaluationRunner:
             retrieval = self._retrieval_service.search(item.question)
             # 复用同一次检索结果，避免每题重复召回与重复向量化（见 11.4）
             answer = self._qa_service.answer(item.question, retrieval=retrieval)
-            top_k = tuple(retrieval.fused_ids[:RECALL_K])
+            retrieved = tuple(retrieval.fused_ids[:10])
+            top_k = retrieved[:RECALL_K]
             recall_hit: bool | None = None
             precision: float | None = None
+            mrr: float | None = None
+            ndcg: float | None = None
             if item.relevant_child_ids:
                 recall_hit = bool(set(top_k) & set(item.relevant_child_ids))
                 if top_k:
                     precision = round(
                         len(set(top_k) & set(item.relevant_child_ids)) / len(top_k), 4
                     )
+                mrr = round(_mrr(item.relevant_child_ids, retrieved), 4)
+                ndcg = round(_ndcg(item.relevant_child_ids, retrieved), 4)
             results.append(
                 QuestionResult(
                     question_id=item.id,
                     category=item.category,
-                    retrieved=top_k,
+                    retrieved=retrieved,
                     recall_hit=recall_hit,
                     answer_type=answer.answer_type,
                     citations_validated=answer.citations_validated,
                     citation_count=len(answer.citations),
                     max_similarity=retrieval.max_similarity,
                     precision_at_5=precision,
+                    mrr_at_10=mrr,
+                    ndcg_at_10=ndcg,
                 )
             )
         return self._summarize(questions, results)
@@ -143,6 +161,16 @@ class EvaluationRunner:
             for result in labeled
             if result.precision_at_5 is not None
         ]
+        mrrs = [
+            result.mrr_at_10
+            for result in labeled
+            if result.mrr_at_10 is not None
+        ]
+        ndcgs = [
+            result.ndcg_at_10
+            for result in labeled
+            if result.ndcg_at_10 is not None
+        ]
         return EvalReport(
             total=len(results),
             recall_at_5=_ratio(len(recall_hits), len(labeled)),
@@ -151,6 +179,13 @@ class EvaluationRunner:
             precision_at_5=(
                 round(sum(precisions) / len(precisions), 4) if precisions else None
             ),
+            mrr_at_10=(
+                round(sum(mrrs) / len(mrrs), 4) if mrrs else None
+            ),
+            ndcg_at_10=(
+                round(sum(ndcgs) / len(ndcgs), 4) if ndcgs else None
+            ),
+            category_metrics=_category_metrics(questions, results),
             results=tuple(results),
         )
 
@@ -159,6 +194,73 @@ def _ratio(numerator: int, denominator: int) -> float | None:
     if denominator == 0:
         return None
     return round(numerator / denominator, 4)
+
+
+def _mrr(relevant: Sequence[int], retrieved: Sequence[int]) -> float:
+    relevant_set = set(relevant)
+    for rank, child_id in enumerate(retrieved, start=1):
+        if child_id in relevant_set:
+            return 1.0 / rank
+    return 0.0
+
+
+def _ndcg(relevant: Sequence[int], retrieved: Sequence[int]) -> float:
+    relevant_set = set(relevant)
+    dcg = sum(
+        1.0 / math.log2(rank + 1)
+        for rank, child_id in enumerate(retrieved[:10], start=1)
+        if child_id in relevant_set
+    )
+    ideal_hits = min(len(relevant_set), 10)
+    idcg = sum(
+        1.0 / math.log2(rank + 1) for rank in range(1, ideal_hits + 1)
+    )
+    return dcg / idcg if idcg else 0.0
+
+
+def _category_metrics(
+    questions: Sequence[EvalQuestion], results: Sequence[QuestionResult]
+) -> dict[str, dict[str, object]]:
+    categories = sorted({item.category for item in questions})
+    payload: dict[str, dict[str, object]] = {}
+    for category in categories:
+        paired = [
+            (question, result)
+            for question, result in zip(questions, results, strict=True)
+            if question.category == category
+        ]
+        labeled = [
+            result for question, result in paired if question.relevant_child_ids
+        ]
+        unlabeled = [
+            result
+            for question, result in paired
+            if not question.relevant_child_ids
+        ]
+        hits = sum(1 for result in labeled if result.recall_hit)
+        payload[category] = {
+            "total": len(paired),
+            "labeled": len(labeled),
+            "recall_at_5": _ratio(hits, len(labeled)),
+            "mrr_at_10": _average([result.mrr_at_10 for result in labeled]),
+            "ndcg_at_10": _average([result.ndcg_at_10 for result in labeled]),
+            "insufficient_accuracy": _ratio(
+                sum(
+                    1
+                    for result in unlabeled
+                    if result.answer_type == "insufficient_evidence"
+                ),
+                len(unlabeled),
+            ),
+        }
+    return payload
+
+
+def _average(values: Sequence[float | None]) -> float | None:
+    present = [value for value in values if value is not None]
+    if not present:
+        return None
+    return round(sum(present) / len(present), 4)
 
 
 def load_questions(path: Path) -> list[EvalQuestion]:

@@ -1,14 +1,32 @@
 {
-  "version": 2,
+  "version": 3,
   "corpus": "tests/evals/corpus.json",
   "chunker_version": "v1",
   "snapshot": "2026-10-15",
-  "note": "相关 child_id 基于 data/eval-kb 中 corpus.json 快照的入库结果人工标注；语料顺序变化、页面内容更新或切块规则调整后需重新标注。",
+  "note": "相关 child_id 基于 2026-10-15 真实语料快照人工标注；qXXa/qXXb 为同义改写，沿用原题标注；语料、切块规则或页面内容变化后需重新标注。",
   "questions": [
     {
       "id": "q01",
       "category": "专有名词",
       "question": "Python 的 dict 是怎么存储数据的？为什么查找很快？",
+      "relevant_child_ids": [
+        286,
+        288
+      ]
+    },
+    {
+      "id": "q01a",
+      "category": "专有名词",
+      "question": "dict 的底层存储方式是什么，为什么查询效率高？",
+      "relevant_child_ids": [
+        286,
+        288
+      ]
+    },
+    {
+      "id": "q01b",
+      "category": "专有名词",
+      "question": "解释 Python 字典为什么能快速查找键值。",
       "relevant_child_ids": [
         286,
         288
@@ -24,9 +42,45 @@
       ]
     },
     {
+      "id": "q02a",
+      "category": "专有名词",
+      "question": "Python 中整除运算符 // 与普通除法 / 的结果有什么不同？",
+      "relevant_child_ids": [
+        132,
+        134
+      ]
+    },
+    {
+      "id": "q02b",
+      "category": "专有名词",
+      "question": "什么时候用 //，什么时候用 /？",
+      "relevant_child_ids": [
+        132,
+        134
+      ]
+    },
+    {
       "id": "q03",
       "category": "专有名词",
       "question": "enumerate 函数有什么用？",
+      "relevant_child_ids": [
+        523,
+        524
+      ]
+    },
+    {
+      "id": "q03a",
+      "category": "专有名词",
+      "question": "Python 的 enumerate 能解决什么问题？",
+      "relevant_child_ids": [
+        523,
+        524
+      ]
+    },
+    {
+      "id": "q03b",
+      "category": "专有名词",
+      "question": "遍历列表时想同时拿到下标和元素，应该用什么函数？",
       "relevant_child_ids": [
         523,
         524
@@ -42,9 +96,45 @@
       ]
     },
     {
+      "id": "q04a",
+      "category": "专有名词",
+      "question": "Python 装饰器的作用是什么？",
+      "relevant_child_ids": [
+        729,
+        733
+      ]
+    },
+    {
+      "id": "q04b",
+      "category": "专有名词",
+      "question": "为什么需要装饰器，它通常用来做什么？",
+      "relevant_child_ids": [
+        729,
+        733
+      ]
+    },
+    {
       "id": "q05",
       "category": "专有名词",
       "question": "LangChain Deep Agents 的执行环境由哪几层组成？",
+      "relevant_child_ids": [
+        2098,
+        2099
+      ]
+    },
+    {
+      "id": "q05a",
+      "category": "专有名词",
+      "question": "Deep Agents 的 execution environment 包含哪些组成部分？",
+      "relevant_child_ids": [
+        2098,
+        2099
+      ]
+    },
+    {
+      "id": "q05b",
+      "category": "专有名词",
+      "question": "LangChain Deep Agents 的运行环境分几层？",
       "relevant_child_ids": [
         2098,
         2099
@@ -61,9 +151,47 @@
       ]
     },
     {
+      "id": "q06a",
+      "category": "语义改写",
+      "question": "如何用切片取出列表最前面的 3 个元素？",
+      "relevant_child_ids": [
+        480,
+        481,
+        482
+      ]
+    },
+    {
+      "id": "q06b",
+      "category": "语义改写",
+      "question": "Python 里获取列表前三项怎么写？",
+      "relevant_child_ids": [
+        480,
+        481,
+        482
+      ]
+    },
+    {
       "id": "q07",
       "category": "语义改写",
       "question": "需要一边循环一边产生数据、又不占内存，应该用什么写法？",
+      "relevant_child_ids": [
+        577,
+        579
+      ]
+    },
+    {
+      "id": "q07a",
+      "category": "语义改写",
+      "question": "怎样写一个边迭代边产出值、且内存占用低的函数？",
+      "relevant_child_ids": [
+        577,
+        579
+      ]
+    },
+    {
+      "id": "q07b",
+      "category": "语义改写",
+      "question": "什么语法可以在循环中逐个产生数据而不一次性生成列表？",
       "relevant_child_ids": [
         577,
         579
@@ -78,9 +206,43 @@
       ]
     },
     {
+      "id": "q08a",
+      "category": "语义改写",
+      "question": "Python 多线程做 CPU 密集计算时为何无法利用多核？",
+      "relevant_child_ids": [
+        1434
+      ]
+    },
+    {
+      "id": "q08b",
+      "category": "语义改写",
+      "question": "解释 GIL 对多线程计算任务的影响。",
+      "relevant_child_ids": [
+        1434
+      ]
+    },
+    {
       "id": "q09",
       "category": "语义改写",
       "question": "Python 怎么读写一个文本文件？",
+      "relevant_child_ids": [
+        1293,
+        1294
+      ]
+    },
+    {
+      "id": "q09a",
+      "category": "语义改写",
+      "question": "用 Python 打开、读取并写入文本文件的基本步骤是什么？",
+      "relevant_child_ids": [
+        1293,
+        1294
+      ]
+    },
+    {
+      "id": "q09b",
+      "category": "语义改写",
+      "question": "Python 文件读写需要哪些函数和模式？",
       "relevant_child_ids": [
         1293,
         1294
@@ -95,9 +257,41 @@
       ]
     },
     {
+      "id": "q10a",
+      "category": "语义改写",
+      "question": "怎样把函数当作参数传给另一个函数？",
+      "relevant_child_ids": [
+        612
+      ]
+    },
+    {
+      "id": "q10b",
+      "category": "语义改写",
+      "question": "Python 中函数作为一等对象，如何作为参数使用？",
+      "relevant_child_ids": [
+        612
+      ]
+    },
+    {
       "id": "q11",
       "category": "代码查询",
       "question": "print('hello, world') 出现在教程的哪一章？",
+      "relevant_child_ids": [
+        23
+      ]
+    },
+    {
+      "id": "q11a",
+      "category": "代码查询",
+      "question": "教程中第一个 hello world 示例出现在哪一节？",
+      "relevant_child_ids": [
+        23
+      ]
+    },
+    {
+      "id": "q11b",
+      "category": "代码查询",
+      "question": "print('hello, world') 这个例子在哪个章节？",
       "relevant_child_ids": [
         23
       ]
@@ -112,6 +306,24 @@
       ]
     },
     {
+      "id": "q12a",
+      "category": "代码查询",
+      "question": "re.match 校验电话号码 010-12345 时使用了什么模式？",
+      "relevant_child_ids": [
+        1466,
+        1478
+      ]
+    },
+    {
+      "id": "q12b",
+      "category": "代码查询",
+      "question": "教程里匹配 010-12345 格式的正则表达式是什么？",
+      "relevant_child_ids": [
+        1466,
+        1478
+      ]
+    },
+    {
       "id": "q13",
       "category": "代码查询",
       "question": "代码 open('/Users/michael/test.txt', 'r') 在讲什么？",
@@ -120,9 +332,43 @@
       ]
     },
     {
+      "id": "q13a",
+      "category": "代码查询",
+      "question": "open('/Users/michael/test.txt', 'r') 这行代码演示了什么操作？",
+      "relevant_child_ids": [
+        1294
+      ]
+    },
+    {
+      "id": "q13b",
+      "category": "代码查询",
+      "question": "教程中读取 /Users/michael/test.txt 的例子在讲什么？",
+      "relevant_child_ids": [
+        1294
+      ]
+    },
+    {
       "id": "q14",
       "category": "代码查询",
       "question": "函数里写 yield b 是什么写法？",
+      "relevant_child_ids": [
+        578,
+        579
+      ]
+    },
+    {
+      "id": "q14a",
+      "category": "代码查询",
+      "question": "生成器函数里 yield b 表示什么？",
+      "relevant_child_ids": [
+        578,
+        579
+      ]
+    },
+    {
+      "id": "q14b",
+      "category": "代码查询",
+      "question": "包含 yield 的函数有什么特殊行为？",
       "relevant_child_ids": [
         578,
         579
@@ -139,9 +385,47 @@
       ]
     },
     {
+      "id": "q15a",
+      "category": "跨章节",
+      "question": "list、tuple、dict 三种数据结构分别适合哪些使用场景？",
+      "relevant_child_ids": [
+        185,
+        286,
+        288
+      ]
+    },
+    {
+      "id": "q15b",
+      "category": "跨章节",
+      "question": "在 Python 中如何选择列表、元组和字典？",
+      "relevant_child_ids": [
+        185,
+        286,
+        288
+      ]
+    },
+    {
       "id": "q16",
       "category": "跨章节",
       "question": "从编码角度解释 Python 3 的字符串为什么默认是 Unicode？",
+      "relevant_child_ids": [
+        142,
+        143
+      ]
+    },
+    {
+      "id": "q16a",
+      "category": "跨章节",
+      "question": "为什么 Python 3 的 str 默认使用 Unicode 编码？",
+      "relevant_child_ids": [
+        142,
+        143
+      ]
+    },
+    {
+      "id": "q16b",
+      "category": "跨章节",
+      "question": "从字符编码的角度解释 Python 3 字符串的默认行为。",
       "relevant_child_ids": [
         142,
         143
@@ -157,9 +441,39 @@
       ]
     },
     {
+      "id": "q17a",
+      "category": "跨章节",
+      "question": "Deep Agents 如何在执行敏感操作前请求人工批准？",
+      "relevant_child_ids": [
+        2096,
+        2130
+      ]
+    },
+    {
+      "id": "q17b",
+      "category": "跨章节",
+      "question": "LangChain Deep Agents 的人工确认机制是怎么工作的？",
+      "relevant_child_ids": [
+        2096,
+        2130
+      ]
+    },
+    {
       "id": "q18",
       "category": "无答案",
       "question": "Kubernetes Ingress 怎么配置 TLS 证书？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q18a",
+      "category": "无答案",
+      "question": "Kubernetes Ingress 的 TLS 证书应该怎样配置？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q18b",
+      "category": "无答案",
+      "question": "如何在 Kubernetes 中为 Ingress 启用 HTTPS？",
       "relevant_child_ids": []
     },
     {
@@ -169,9 +483,33 @@
       "relevant_child_ids": []
     },
     {
+      "id": "q19a",
+      "category": "无答案",
+      "question": "Redis 的 RDB 快照和 AOF 日志持久化方式有什么不同？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q19b",
+      "category": "无答案",
+      "question": "Redis 持久化选 RDB 还是 AOF？",
+      "relevant_child_ids": []
+    },
+    {
       "id": "q20",
       "category": "无答案",
       "question": "PyTorch 的自动求导是怎么实现的？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q20a",
+      "category": "无答案",
+      "question": "PyTorch 的 autograd 是怎么工作的？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q20b",
+      "category": "无答案",
+      "question": "解释 PyTorch 自动微分机制的实现原理。",
       "relevant_child_ids": []
     },
     {
@@ -181,9 +519,33 @@
       "relevant_child_ids": []
     },
     {
+      "id": "q21a",
+      "category": "无答案",
+      "question": "如何用 GitHub Actions 搭建持续集成流程？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q21b",
+      "category": "无答案",
+      "question": "GitHub Actions 的 CI 配置应该怎么写？",
+      "relevant_child_ids": []
+    },
+    {
       "id": "q22",
       "category": "无答案",
       "question": "Excel 数据透视表怎么做？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q22a",
+      "category": "无答案",
+      "question": "Excel 里如何创建数据透视表？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q22b",
+      "category": "无答案",
+      "question": "数据透视表在 Excel 中怎么用？",
       "relevant_child_ids": []
     }
   ]

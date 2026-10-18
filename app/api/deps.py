@@ -8,6 +8,7 @@ from app.infra.embedding import EmbeddingClient
 from app.infra.fetcher import Fetcher
 from app.infra.fts import FtsIndex
 from app.infra.llm import LLMClient
+from app.infra.rerank import RerankClient
 from app.infra.vector import VectorIndex
 from app.services.ingestion import IngestionService
 from app.services.ingestion_jobs import IngestionWorker, JobService
@@ -26,6 +27,7 @@ class Container:
         fetcher: Fetcher | None = None,
         embedder: EmbeddingClient | None = None,
         llm_client: LLMClient | None = None,
+        rerank_client: RerankClient | None = None,
     ) -> None:
         self.settings = settings
         self.engine = create_db_engine(settings.sqlite_path)
@@ -97,6 +99,7 @@ class Container:
             fts_index=self.fts_index,
             vector_index=self.vector_index,
             settings=settings,
+            rerank_client=rerank_client,
         )
         self.qa_service = QAService(
             retrieval_service=self.retrieval_service, llm_client=self.llm_client
@@ -110,6 +113,7 @@ class Container:
 
     def close(self) -> None:
         self.ingestion_worker.stop(timeout_s=self.settings.ingest_timeout_s + 5)
+        self.retrieval_service.close()
         for client in (self.fetcher, self.embedder, self.llm_client):
             close = getattr(client, "close", None)
             if callable(close):

@@ -20,6 +20,8 @@ def test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
     monkeypatch.setenv("EMBEDDING_API_KEY", "test-embedding-key")
     monkeypatch.setenv("LLM_API_BASE", "https://example.invalid/v1")
     monkeypatch.setenv("LLM_API_KEY", "test-llm-key")
+    # 本地 .env 可能开启 rerank；测试必须显式关闭，避免访问外部 API。
+    monkeypatch.setenv("RERANK_ENABLED", "false")
     monkeypatch.setenv("SQLITE_PATH", str(tmp_path / "app.db"))
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     monkeypatch.setenv("LOG_FILE", str(tmp_path / "logs" / "app.log"))

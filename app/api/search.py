@@ -24,6 +24,8 @@ def search(payload: QuestionRequest, request: Request) -> SearchResponse:
         bm25_ids=list(result.bm25_ids),
         fused_ids=list(result.fused_ids),
         max_similarity=result.max_similarity,
+        rerank_applied=result.rerank_applied,
+        rerank_model=result.rerank_model,
         evidences=[
             EvidenceResponse(
                 source_id=evidence.source_id,

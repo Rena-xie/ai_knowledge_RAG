@@ -65,6 +65,8 @@ class SearchResponse(BaseModel):
     fused_ids: list[int]
     evidences: list[EvidenceResponse]
     max_similarity: float
+    rerank_applied: bool = False
+    rerank_model: str | None = None
     elapsed_ms: float
 
 
@@ -100,6 +102,7 @@ class IngestionCreateRequest(BaseModel):
 
     urls: list[str] = Field(min_length=1)
     client_run_id: str | None = Field(default=None, max_length=128)
+    force_refresh: bool = False
 
 
 class SkippedItemResponse(BaseModel):
@@ -171,3 +174,17 @@ class IngestionJobListResponse(BaseModel):
     total: int
     page: int
     size: int
+
+
+class IngestionStatsResponse(BaseModel):
+    """异步入库统计。"""
+
+    window_hours: int
+    total: int
+    queued: int
+    running: int
+    completed: int
+    partial: int
+    failed: int
+    average_duration_ms: float | None = None
+    queue_depth: int = 0

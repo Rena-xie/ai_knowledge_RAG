@@ -16,6 +16,7 @@ from app.infra.db import (
     init_db,
 )
 from app.infra.fts import FtsIndex
+from app.infra.rerank import RerankError, RerankHit
 from app.infra.vector import VectorIndex
 from app.services.retrieval import RetrievalService
 
@@ -28,6 +29,26 @@ class FixedEmbedder:
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         return [list(self._vector) for _ in texts]
+
+
+class FakeRerank:
+    def __init__(self, order: Sequence[int], *, fail: bool = False) -> None:
+        self._order = list(order)
+        self._fail = fail
+        self.calls = 0
+
+    def rerank(self, _query: str, documents: Sequence[str]) -> list[RerankHit]:
+        self.calls += 1
+        if self._fail:
+            raise RerankError("rerank unavailable")
+        return [
+            RerankHit(index=index, score=1.0 - rank * 0.1)
+            for rank, index in enumerate(self._order)
+            if index < len(documents)
+        ]
+
+    def close(self) -> None:
+        return None
 
 
 def build_settings(**overrides) -> Settings:
@@ -111,13 +132,19 @@ def seed_source(
     return source_id, child_ids
 
 
-def build_service(env: dict[str, object], **overrides) -> RetrievalService:
+def build_service(
+    env: dict[str, object],
+    *,
+    rerank_client: FakeRerank | None = None,
+    **overrides,
+) -> RetrievalService:
     return RetrievalService(
         session_factory=env["session_factory"],
         embedder=FixedEmbedder([1.0, 0.0, 0.0]),
         fts_index=env["fts"],
         vector_index=env["vector"],
         settings=build_settings(**overrides),
+        rerank_client=rerank_client,
     )
 
 
@@ -139,6 +166,51 @@ def test_search_returns_evidence_with_parent_context(
     assert child_ids[0] in result.dense_ids
     assert child_ids[0] in result.bm25_ids
     assert result.max_similarity == pytest.approx(1.0, abs=0.01)
+
+
+def test_rerank_reorders_candidates_and_uses_its_score(
+    env: dict[str, object],
+) -> None:
+    _, child_ids = seed_source(
+        env,
+        child_texts=("BM25 稀疏检索", "向量检索", "混合检索"),
+        embeddings=(
+            [1.0, 0.0, 0.0],
+            [0.9, 0.1, 0.0],
+            [0.8, 0.2, 0.0],
+        ),
+    )
+    rerank = FakeRerank(order=[2, 0, 1])
+    service = build_service(
+        env,
+        rerank_client=rerank,
+        final_top_k=2,
+        rerank_top_n=5,
+    )
+
+    result = service.search("检索")
+
+    assert rerank.calls == 1
+    assert result.rerank_applied is True
+    assert result.rerank_model == "BAAI/bge-reranker-v2-m3"
+    assert result.fused_ids[0] == child_ids[2]
+    assert result.evidences[0].child_id == child_ids[2]
+    assert result.evidences[0].score == pytest.approx(1.0)
+
+
+def test_rerank_failure_falls_back_to_rrf(env: dict[str, object]) -> None:
+    seed_source(env)
+    service = build_service(
+        env,
+        rerank_client=FakeRerank(order=[1, 0], fail=True),
+        final_top_k=2,
+        rerank_top_n=5,
+    )
+
+    result = service.search("BM25")
+
+    assert result.rerank_applied is False
+    assert result.evidences
 
 
 def test_low_similarity_gate_returns_no_evidence(env: dict[str, object]) -> None:
