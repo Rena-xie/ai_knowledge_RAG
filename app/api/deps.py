@@ -10,6 +10,7 @@ from app.infra.fts import FtsIndex
 from app.infra.llm import LLMClient
 from app.infra.vector import VectorIndex
 from app.services.ingestion import IngestionService
+from app.services.ingestion_jobs import IngestionWorker, JobService
 from app.services.qa import QAService
 from app.services.retrieval import RetrievalService
 from app.services.source import SourceService
@@ -82,6 +83,14 @@ class Container:
             vector_index=self.vector_index,
             settings=settings,
         )
+        self.job_service = JobService(
+            session_factory=self.session_factory,
+            ingestion_service=self.ingestion_service,
+            settings=settings,
+        )
+        self.ingestion_worker = IngestionWorker(
+            self.job_service, queue_max=settings.ingestion_queue_max
+        )
         self.retrieval_service = RetrievalService(
             session_factory=self.session_factory,
             embedder=self.embedder,
@@ -93,7 +102,14 @@ class Container:
             retrieval_service=self.retrieval_service, llm_client=self.llm_client
         )
 
+    def start_background_tasks(self) -> None:
+        """启动入库 Worker，并恢复上次未完成的 queued job。"""
+
+        self.ingestion_worker.start()
+        self.job_service.recover(enqueue=self.ingestion_worker.submit)
+
     def close(self) -> None:
+        self.ingestion_worker.stop(timeout_s=self.settings.ingest_timeout_s + 5)
         for client in (self.fetcher, self.embedder, self.llm_client):
             close = getattr(client, "close", None)
             if callable(close):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -13,11 +14,22 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     event,
+    inspect,
+    text,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    relationship,
+    sessionmaker,
+)
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_BUSY_TIMEOUT_MS = 5000
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 
 
 class Base(DeclarativeBase):
@@ -39,9 +51,66 @@ class KnowledgeSource(Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     chunker_version: Mapped[str | None] = mapped_column(Text)
     embedding_model: Mapped[str | None] = mapped_column(Text)
+    last_checked_at: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[str] = mapped_column(Text, nullable=False)
     processed_at: Mapped[str | None] = mapped_column(Text)
+
+
+class IngestionJob(Base):
+    """异步入库任务（v2）。"""
+
+    __tablename__ = "ingestion_jobs"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    total_items: Mapped[int] = mapped_column(nullable=False)
+    succeeded_items: Mapped[int] = mapped_column(nullable=False, default=0)
+    failed_items: Mapped[int] = mapped_column(nullable=False, default=0)
+    skipped_items: Mapped[int] = mapped_column(nullable=False, default=0)
+    client_run_id: Mapped[str | None] = mapped_column(Text)
+    idempotency_key: Mapped[str | None] = mapped_column(Text, unique=True)
+    error_code: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    started_at: Mapped[str | None] = mapped_column(Text)
+    finished_at: Mapped[str | None] = mapped_column(Text)
+
+    items: Mapped[list[IngestionJobItem]] = relationship(
+        back_populates="job",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class IngestionJobItem(Base):
+    """入库任务中的单个 URL（v2）。"""
+
+    __tablename__ = "ingestion_job_items"
+    __table_args__ = (
+        Index("ix_ingestion_job_items_job", "job_id", "id"),
+        Index("ix_ingestion_job_items_status", "status"),
+        Index("ix_ingestion_job_items_canonical", "canonical_url"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    job_id: Mapped[str] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    canonical_url: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    source_id: Mapped[int | None] = mapped_column(
+        ForeignKey("knowledge_sources.id", ondelete="SET NULL")
+    )
+    title: Mapped[str | None] = mapped_column(Text)
+    error_code: Mapped[str | None] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(nullable=False, default=0)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    started_at: Mapped[str | None] = mapped_column(Text)
+    finished_at: Mapped[str | None] = mapped_column(Text)
+
+    job: Mapped[IngestionJob] = relationship(back_populates="items")
 
 
 class ParentChunk(Base):
@@ -124,10 +193,51 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 
 def init_db(engine: Engine) -> None:
-    """按 ORM 模型创建全部关系表，并写入 schema_version。"""
+    """按 ORM 模型创建全部关系表，并执行幂等 schema 迁移。"""
 
     Base.metadata.create_all(engine)
+    _migrate_schema(engine)
+
+
+def _migrate_schema(engine: Engine) -> None:
+    """把 v1 数据库升级到 v2；未知版本保持原值，避免误降级。"""
+
+    table_names = set(inspect(engine).get_table_names())
+    if "knowledge_sources" in table_names:
+        _ensure_last_checked_at(engine)
+    if "index_meta" not in table_names:
+        return
+
     with Session(engine) as session:
-        if session.get(IndexMeta, "schema_version") is None:
+        meta = session.get(IndexMeta, "schema_version")
+        if meta is None:
             session.add(IndexMeta(key="schema_version", value=SCHEMA_VERSION))
             session.commit()
+            return
+        version = meta.value
+
+    if version == SCHEMA_VERSION:
+        return
+    if version != "1":
+        logger.warning(
+            "未知 schema_version，保持原值",
+            extra={"schema_version": version},
+        )
+        return
+
+    with Session(engine) as session:
+        meta = session.get(IndexMeta, "schema_version")
+        if meta is not None:
+            meta.value = SCHEMA_VERSION
+            session.commit()
+
+
+def _ensure_last_checked_at(engine: Engine) -> None:
+    columns = {
+        column["name"] for column in inspect(engine).get_columns("knowledge_sources")
+    }
+    if "last_checked_at" not in columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE knowledge_sources ADD COLUMN last_checked_at TEXT")
+            )

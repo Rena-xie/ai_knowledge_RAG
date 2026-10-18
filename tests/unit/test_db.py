@@ -45,6 +45,8 @@ def test_creates_all_tables(engine: Engine) -> None:
         "parent_chunks",
         "child_chunks",
         "index_meta",
+        "ingestion_jobs",
+        "ingestion_job_items",
     } <= tables
 
 
@@ -167,3 +169,68 @@ def test_init_db_keeps_existing_schema_version(engine: Engine) -> None:
 
     with session_factory() as session:
         assert session.get(IndexMeta, "schema_version").value == "0"
+
+
+def test_migrates_v1_database(tmp_path: Path) -> None:
+    """v1 数据文件升级后保留数据并补上 v2 字段与表。"""
+
+    engine = create_db_engine(tmp_path / "v1.db")
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE knowledge_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT NOT NULL,
+                canonical_url TEXT NOT NULL UNIQUE,
+                title TEXT,
+                content_hash TEXT,
+                status TEXT NOT NULL,
+                error_code TEXT,
+                error_message TEXT,
+                chunker_version TEXT,
+                embedding_model TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                processed_at TEXT
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            """
+            CREATE TABLE index_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+            """
+        )
+        connection.exec_driver_sql(
+            """
+            INSERT INTO knowledge_sources
+                (url, canonical_url, title, status, created_at, updated_at)
+            VALUES
+                ('https://example.com/a', 'https://example.com/a',
+                 '旧来源', 'completed', '2026-10-01T00:00:00Z',
+                 '2026-10-01T00:00:00Z')
+            """
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO index_meta (key, value) VALUES ('schema_version', '1')"
+        )
+
+    init_db(engine)
+
+    columns = {
+        column["name"] for column in inspect(engine).get_columns("knowledge_sources")
+    }
+    assert "last_checked_at" in columns
+    tables = set(inspect(engine).get_table_names())
+    assert {"ingestion_jobs", "ingestion_job_items"} <= tables
+
+    session_factory = create_session_factory(engine)
+    with session_factory() as session:
+        assert session.get(IndexMeta, "schema_version").value == "2"
+        source = session.get(KnowledgeSource, 1)
+        assert source is not None
+        assert source.title == "旧来源"
+        assert source.last_checked_at is None
+    engine.dispose()

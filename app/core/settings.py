@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     # 入库
     ingest_timeout_s: int = 60
     ingest_lock_timeout_s: int = 30
+    ingestion_max_urls: int = 20
+    ingestion_queue_max: int = 100
+    ingestion_job_timeout_s: int = 1800
 
     # 服务
     max_request_bytes: int = 1048576

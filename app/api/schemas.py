@@ -93,3 +93,81 @@ class QueryResponse(BaseModel):
     citations: list[CitationResponse]
     citations_validated: bool
     usage: UsageResponse
+
+
+class IngestionCreateRequest(BaseModel):
+    """创建异步入库任务。"""
+
+    urls: list[str] = Field(min_length=1)
+    client_run_id: str | None = Field(default=None, max_length=128)
+
+
+class SkippedItemResponse(BaseModel):
+    """创建任务时被跳过的 URL。"""
+
+    url: str
+    reason: str
+    source_id: int | None = None
+
+
+class IngestionCreateResponse(BaseModel):
+    """创建任务响应。"""
+
+    job_id: str
+    status: str
+    total: int
+    accepted: int
+    skipped: list[SkippedItemResponse]
+    created_at: str
+
+
+class IngestionItemResponse(BaseModel):
+    """任务内单条 URL 状态。"""
+
+    url: str
+    canonical_url: str
+    status: str
+    source_id: int | None = None
+    title: str | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+
+
+class IngestionJobResponse(BaseModel):
+    """任务详情。"""
+
+    job_id: str
+    status: str
+    total: int
+    succeeded: int
+    failed: int
+    skipped: int
+    created_at: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    items: list[IngestionItemResponse]
+    items_truncated: bool = False
+
+
+class IngestionJobSummaryResponse(BaseModel):
+    """任务列表项。"""
+
+    job_id: str
+    status: str
+    total: int
+    succeeded: int
+    failed: int
+    skipped: int
+    created_at: str
+    finished_at: str | None = None
+
+
+class IngestionJobListResponse(BaseModel):
+    """任务分页列表。"""
+
+    items: list[IngestionJobSummaryResponse]
+    total: int
+    page: int
+    size: int

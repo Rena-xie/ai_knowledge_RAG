@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from app.api.deps import Container
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
+from app.api.ingestions import router as ingestions_router
 from app.api.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
 from app.api.query import router as query_router
 from app.api.search import router as search_router
@@ -43,6 +44,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 "error_code": ErrorCode.INGEST_INTERRUPTED.value,
             },
         )
+    container.start_background_tasks()
     logger.info("应用启动完成", extra={"stage": "startup"})
     yield
     container.close()
@@ -60,6 +62,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
     app.include_router(health_router)
     app.include_router(sources_router)
+    app.include_router(ingestions_router)
     app.include_router(search_router)
     app.include_router(query_router)
     return app
