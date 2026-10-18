@@ -166,13 +166,16 @@ flowchart TB
 | Web 框架 | FastAPI、Uvicorn、Pydantic Settings |
 | 数据存储 | SQLite + SQLAlchemy（权威）、SQLite FTS5 + jieba（BM25）、Chroma（向量） |
 | 采集与解析 | HTTPX、Trafilatura |
-| 外部模型 | SiliconFlow `BAAI/bge-m3`（Embedding）、DeepSeek `deepseek-flash`（生成） |
+| 外部模型 | SiliconFlow `BAAI/bge-m3`（Embedding）、`BAAI/bge-reranker-v2-m3`（rerank，v2）、DeepSeek `deepseek-flash`（生成） |
 
 ## 效果与验证
 
 评测语料为真实公开文档站点（廖雪峰 Python 教程 + LangChain Deep Agents 文档）：
-124 个 URL、成功入库 123 页、2590 个 Child 切块，22 道题覆盖专有名词、语义改写、
-代码查询、跨章节与无答案五类场景。
+124 个 URL、成功入库 123 页、2590 个 Child 切块。v1 基线为 22 题；v2 扩展到
+66 题（22 道原题 + 44 条同义改写），覆盖专有名词、语义改写、代码查询、跨章节
+与无答案五类场景。
+
+**v1 检索基线（22 题，2026-10-15）：**
 
 | 指标 | 结果 |
 | --- | --- |
@@ -180,6 +183,10 @@ flowchart TB
 | Precision@5 | 0.2235 |
 | 引用有效率 | **1.0** |
 | 无答案识别率 | **1.0**（优化前 0.0） |
+
+v2 已接入 Cross-Encoder rerank（失败时回退 RRF），并用真实接口验证过模型可用。
+完整 66 题真实语料复测需要重新入库 123 页并产生外部调用费用，当前尚未执行；
+上表仍明确标记为 v1 基线，不把未复测指标写成 v2 结果。
 
 工程验证（2026-10-16 本机复跑）：
 
@@ -217,8 +224,8 @@ V1 明确冻结在"单机、单用户、无前端"范围内：
 - 无 Web 界面，通过 `/docs` 或 API 客户端操作。
 - 一次收录一个 URL，入库为同步调用（总预算 60 秒）；不做站点级爬虫与增量抓取。
 - 只解析静态 HTML 正文，不支持 PDF、图片、音视频与 JS 动态渲染页面。
-- 真实语料 Recall@5 为 0.7647，低于项目自定的 0.8 目标；未命中集中在语义改写与
-  长文档定位，V2 计划引入 Query Rewrite 与 Cross-Encoder 重排序。
+- v1 真实语料 Recall@5 为 0.7647，低于自定 0.8 目标；v2 已接入 Cross-Encoder
+  rerank，完整 66 题复测待执行；Query Rewrite 仍列 V3 候选。
 - 生成侧目前只评估引用有效性与无答案识别率，尚未覆盖答案忠实性指标。
 
 ## 部署指南
@@ -312,6 +319,16 @@ curl.exe "http://127.0.0.1:8000/api/v1/ingestions/{job_id}?wait_seconds=10"
 - job 状态为 `queued / running / completed / partial / failed`，失败项带 `error_code`。
 - 可选 `Idempotency-Key` 请求头，防止重复提交。
 - 与 Learning Agent 同机运行时，建议 RAG 使用 `8001`、Agent 使用 `8000`。
+
+刷新来源与查看统计：
+
+```powershell
+# 重新抓取并替换指定来源（内容未变化时只更新 last_checked_at）
+curl.exe -X POST http://127.0.0.1:8000/api/v1/sources/12/refresh
+
+# 近 24 小时任务统计
+curl.exe "http://127.0.0.1:8000/api/v1/stats/ingestions?since_hours=24"
+```
 
 ### 5. 常用运维命令
 
