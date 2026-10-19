@@ -191,6 +191,9 @@ flowchart TB
 | 无答案识别率 | **1.0** |
 | rerank 生效 | 86/108（其余 fail-open 回退 RRF） |
 
+真实 Agent→RAG 单链接联调（2026-10-19）已通过：FastAPI First Steps 入库 →
+完成通知 → `search_knowledge` 返回 6 条证据 → 回答带 `[S1]` 引用且来源可点击。
+
 官方来源包括 FastAPI、LangChain、LangGraph、OpenAI Cookbook、Anthropic Claude
 Cookbook 与 LangChain 官方博客。OpenAI/Anthropic 主站在当前网络受地区限制或返回
 403，因此使用其官方 GitHub Cookbook 的 Markdown（通过 GitHub API 读取）。新增题
