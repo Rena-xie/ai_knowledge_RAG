@@ -4,6 +4,7 @@
 
 [![CI](https://github.com/Rena-xie/ai_knowledge_RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/Rena-xie/ai_knowledge_RAG/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 项目简介
@@ -28,7 +29,7 @@ Chroma 是可随时重建的派生索引；回答必须携带服务端校验过�
 | **混合检索** | Dense 向量召回 + BM25 稀疏召回并行执行，RRF 融合后恢复完整 Parent 上下文；支持相关性门槛与融合头部保底 |
 | **有据问答** | 证据按不可信输入包裹，模型只能引用上下文内标识；服务端逐条校验引用，无效引用剔除并标记；证据不足返回固定话术 |
 | **可运维** | 启动自检、索引全量/按来源重建、三处数据一致性校验、数据备份、滚动日志、`request_id` 全链路追踪 |
-| **工程质量** | 223 个测试、分支覆盖率 90.29%（门禁 85%）、Ruff + mypy 零错误、GitHub Actions CI |
+| **工程质量** | 251 个测试、分支覆盖率 87.76%（门禁 85%）、Ruff + mypy 零错误、GitHub Actions CI |
 
 ## 系统架构
 
@@ -111,6 +112,8 @@ flowchart TB
 │   ├── main.py                 # 应用装配：路由注册、中间件、生命周期
 │   ├── api/                    # HTTP 层：路由与 Pydantic 模型，不含业务逻辑
 │   │   ├── sources.py          # 来源收录、列表、详情、删除
+│   │   ├── ingestions.py       # 异步入库任务创建、查询、重试
+│   │   ├── stats.py            # 入库任务统计
 │   │   ├── search.py           # 检索调试接口
 │   │   ├── query.py            # 有据问答接口
 │   │   ├── health.py           # 存活 / 就绪检查
@@ -120,6 +123,7 @@ flowchart TB
 │   ├── services/               # 应用服务层：编排业务流程
 │   │   ├── source.py           # 来源生命周期与级联删除
 │   │   ├── ingestion.py        # 抓取 → 解析 → 切块 → 向量化 → 双索引
+│   │   ├── ingestion_jobs.py   # 批量异步任务、单线程 Worker、恢复
 │   │   ├── retrieval.py        # 双路召回 → RRF → 父级上下文
 │   │   ├── qa.py               # 提示词组装、引用校验、证据不足处理
 │   │   ├── evaluation.py       # 检索指标计算
@@ -139,7 +143,8 @@ flowchart TB
 │   │   ├── robots.py           # robots.txt 检查与缓存
 │   │   ├── parser.py           # 正文提取
 │   │   ├── embedding.py        # Embedding API 客户端
-│   │   └── llm.py              # LLM API 客户端
+│   │   ├── llm.py              # LLM API 客户端
+│   │   └── rerank.py           # Cross-Encoder rerank 客户端
 │   ├── core/                   # 配置、日志、错误码、启动自检
 │   └── prompts/                # 分层提示词模板（system / user）
 ├── tests/
@@ -170,10 +175,27 @@ flowchart TB
 
 ## 效果与验证
 
-评测语料为真实公开文档站点（廖雪峰 Python 教程 + LangChain Deep Agents 文档）：
-124 个 URL、成功入库 123 页、2590 个 Child 切块。v1 基线为 22 题；v2 扩展到
-66 题（22 道原题 + 44 条同义改写），覆盖专有名词、语义改写、代码查询、跨章节
-与无答案五类场景。
+评测语料由 v1 的两个站点与 6 组官方文档/博客组成，共 166 个 URL；165 页成功入库，
+4181 个 Child。题库为 108 题：22 道原题 + 44 条同义改写 + 42 道官方文档新题，
+覆盖专有名词、语义改写、代码查询、跨章节与无答案五类场景。
+
+**v2 最终评测（108 题，2026-10-19，`eval-kb-v3`）：**
+
+| 指标 | 结果 |
+| --- | --- |
+| Recall@5 | **0.8387** |
+| Precision@5 | 0.2065 |
+| MRR@10 | 0.6814 |
+| nDCG@10 | 0.6525 |
+| 引用有效率 | **1.0** |
+| 无答案识别率 | **1.0** |
+| rerank 生效 | 86/108（其余 fail-open 回退 RRF） |
+
+官方来源包括 FastAPI、LangChain、LangGraph、OpenAI Cookbook、Anthropic Claude
+Cookbook 与 LangChain 官方博客。OpenAI/Anthropic 主站在当前网络受地区限制或返回
+403，因此使用其官方 GitHub Cookbook 的 Markdown（通过 GitHub API 读取）。新增题
+由官方切块生成并人工抽查，相关 child_id 绑定到具体 chunk；跨章节题的标签已按同章节
+内容补充。语料或切块规则变化后需重新标注。
 
 **v1 检索基线（22 题，2026-10-15）：**
 
@@ -184,17 +206,13 @@ flowchart TB
 | 引用有效率 | **1.0** |
 | 无答案识别率 | **1.0**（优化前 0.0） |
 
-v2 已接入 Cross-Encoder rerank（失败时回退 RRF），并用真实接口验证过模型可用。
-完整 66 题真实语料复测需要重新入库 123 页并产生外部调用费用，当前尚未执行；
-上表仍明确标记为 v1 基线，不把未复测指标写成 v2 结果。
-
-工程验证（2026-10-16 本机复跑）：
+v2 已接入 Cross-Encoder rerank（失败时回退 RRF）。工程验证（2026-10-19 本机复跑）：
 
 | 检查 | 结果 |
 | --- | --- |
-| `pytest --cov` | 223 passed，分支覆盖率 **90.29%** |
+| `pytest --cov` | 251 passed，分支覆盖率 **87.76%** |
 | `ruff check .` | All checks passed |
-| `mypy` | 47 个源文件，无错误 |
+| `mypy` | 51 个源文件，无错误 |
 
 一次问答调用的响应结构（示意）：
 
@@ -218,14 +236,17 @@ v2 已接入 Cross-Encoder rerank（失败时回退 RRF），并用真实接口�
 
 ## 已知限制与路线图
 
-V1 明确冻结在"单机、单用户、无前端"范围内：
+V2 仍保持"单机、单用户、无前端"的边界：
 
 - 仅监听 `127.0.0.1`，**没有鉴权**；不要直接暴露到局域网或公网。
 - 无 Web 界面，通过 `/docs` 或 API 客户端操作。
-- 一次收录一个 URL，入库为同步调用（总预算 60 秒）；不做站点级爬虫与增量抓取。
-- 只解析静态 HTML 正文，不支持 PDF、图片、音视频与 JS 动态渲染页面。
-- v1 真实语料 Recall@5 为 0.7647，低于自定 0.8 目标；v2 已接入 Cross-Encoder
-  rerank，完整 66 题复测待执行；Query Rewrite 仍列 V3 候选。
+- 支持批量异步入库（单 job 最多 20 个 URL）；不做站点级爬虫、定时抓取与批量站点导入。
+- 生产 API 只解析静态 HTML；官方 Markdown 仅用于评测导入。不支持 PDF、图片、
+  音视频与 JS 动态渲染页面。
+- v2 真实语料 Recall@5 为 0.8387，已达到 0.8 目标；剩余未命中仍集中在语义改写与
+  长文档定位，Query Rewrite 列为 V3 候选。
+- rerank 依赖外部 API，评测中有 22/108 题因接口波动 fail-open 回退 RRF；不影响可用性，
+  但会限制质量上限。
 - 生成侧目前只评估引用有效性与无答案识别率，尚未覆盖答案忠实性指标。
 
 ## 部署指南
@@ -264,6 +285,9 @@ LLM_API_KEY=你的 DeepSeek Key
 
 其余参数均有默认值，含义见 [《项目开发说明_v1.md》10.2](项目开发说明_v1.md)。`.env` 已被
 `.gitignore` 排除，不会进入版本库。
+
+> v2 的 rerank 默认开启；未单独配置 `RERANK_API_KEY` 时会复用 Embedding Key。
+> 如需关闭可设置 `RERANK_ENABLED=false`，检索会回退到 RRF 排序。
 
 ### 3. 启动服务
 

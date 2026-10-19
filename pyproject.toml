@@ -1,6 +1,6 @@
 [project]
 name = "ai-knowledge-base"
-version = "v1"
+version = "2.0.0"
 description = "面向个人 AI 学习的网页知识采集、混合检索与有据问答系统"
 readme = "README.md"
 requires-python = ">=3.13"

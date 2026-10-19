@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="AI Knowledge Base",
-        version="v1",
+        version="2.0.0",
         description="面向个人 AI 学习的网页知识采集、混合检索与有据问答系统",
         lifespan=lifespan,
     )

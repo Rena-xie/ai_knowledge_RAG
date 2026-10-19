@@ -60,7 +60,7 @@ def test_version_and_python_baseline_are_consistent() -> None:
     root = Path(__file__).resolve().parents[2]
     project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
 
-    assert project["project"]["version"] == "v1"
+    assert project["project"]["version"] == "2.0.0"
     assert create_app().version == project["project"]["version"]
     assert project["project"]["requires-python"] == ">=3.13"
     assert project["tool"]["ruff"]["target-version"] == "py313"
