@@ -1,9 +1,9 @@
 {
-  "version": 5,
+  "version": 6,
   "corpus": "tests/evals/corpus.json",
   "chunker_version": "v1",
   "snapshot": "2026-10-19",
-  "note": "原 22 题及同义改写基于 2026-10-15 语料；新增 42 道官方文档题基于 2026-10-19 eval-kb-v3 快照；跨章节题补充同章节相关 child_id；无答案题改为语料外主题；语料或切块变化后需重新标注。",
+  "note": "原 22 题及同义改写基于 2026-10-15 语料；新增 42 道官方文档题基于 2026-10-19 eval-kb-v3 快照；跨章节题补充同章节相关 child_id；无答案题改为语料外主题；2026-10-20 新增 q65-q84 共 20 个独立主题（跨章节 10、代码查询 10），仍基于 eval-kb-v3 快照。语料或切块变化后需重新标注。",
   "questions": [
     {
       "id": "q01",
@@ -903,6 +903,189 @@
       "question": "Claude 的 Skills 功能可被用于哪三类任务？",
       "relevant_child_ids": [
         4123
+      ]
+    },
+    {
+      "id": "q65",
+      "category": "跨章节",
+      "question": "Python 的生成器和迭代器是什么关系？为什么生成器既能用于 for 循环，又能被 next() 调用？",
+      "relevant_child_ids": [
+        565,
+        603
+      ]
+    },
+    {
+      "id": "q66",
+      "category": "跨章节",
+      "question": "Python 的闭包和装饰器是什么关系？为什么说装饰器本质上是一个返回函数的高阶函数？",
+      "relevant_child_ids": [
+        703,
+        733
+      ]
+    },
+    {
+      "id": "q67",
+      "category": "跨章节",
+      "question": "Python 的 dict 和 set 都要求 key 可哈希，为什么 list 不能作为 key，而 tuple 可以？",
+      "relevant_child_ids": [
+        302,
+        303,
+        215
+      ]
+    },
+    {
+      "id": "q68",
+      "category": "跨章节",
+      "question": "FastAPI 中路径参数、查询参数和请求体分别适合放什么数据？",
+      "relevant_child_ids": [
+        2646,
+        2692,
+        2741
+      ]
+    },
+    {
+      "id": "q69",
+      "category": "跨章节",
+      "question": "FastAPI 的依赖注入除了复用代码，还能怎样用于安全校验和权限控制？",
+      "relevant_child_ids": [
+        2770,
+        2808
+      ]
+    },
+    {
+      "id": "q70",
+      "category": "跨章节",
+      "question": "LangGraph 的 interrupt() 暂停执行后，为什么必须配合持久化（checkpointer）才能恢复？",
+      "relevant_child_ids": [
+        3328,
+        3318
+      ]
+    },
+    {
+      "id": "q71",
+      "category": "跨章节",
+      "question": "LangChain Agent 的短期记忆和长期记忆分别存在哪里、作用范围有什么不同？",
+      "relevant_child_ids": [
+        3084,
+        3141
+      ]
+    },
+    {
+      "id": "q72",
+      "category": "跨章节",
+      "question": "Deep Agents 的 skills 和 subagents 分别解决什么问题？什么时候该用哪一个？",
+      "relevant_child_ids": [
+        2121,
+        2486
+      ]
+    },
+    {
+      "id": "q73",
+      "category": "跨章节",
+      "question": "Deep Agents 的 Sandbox 和 FilesystemBackend 在隔离性和文件访问上有什么区别？",
+      "relevant_child_ids": [
+        2393,
+        2342
+      ]
+    },
+    {
+      "id": "q74",
+      "category": "跨章节",
+      "question": "RAG 为什么要把文档切成 chunk？按标题层级做结构化切分相比固定长度切分有什么好处？",
+      "relevant_child_ids": [
+        3455,
+        3456,
+        2265
+      ]
+    },
+    {
+      "id": "q75",
+      "category": "代码查询",
+      "question": "functools.partial(int, base=2) 创建的新函数和 int 有什么区别？",
+      "relevant_child_ids": [
+        770,
+        771
+      ]
+    },
+    {
+      "id": "q76",
+      "category": "代码查询",
+      "question": "sorted() 的 key 参数怎么用？要按绝对值排序应该怎么写？",
+      "relevant_child_ids": [
+        675,
+        676
+      ]
+    },
+    {
+      "id": "q77",
+      "category": "代码查询",
+      "question": "FastAPI 里用 Depends 和 Annotated 声明依赖的写法是什么？",
+      "relevant_child_ids": [
+        2774,
+        2780
+      ]
+    },
+    {
+      "id": "q78",
+      "category": "代码查询",
+      "question": "FastAPI 用 APIRouter 把路由拆分到多个文件时，router 实例怎么创建、路由怎么声明？",
+      "relevant_child_ids": [
+        2826,
+        2828
+      ]
+    },
+    {
+      "id": "q79",
+      "category": "代码查询",
+      "question": "FastAPI 的 TestClient 怎么创建，测试函数里怎么发请求和断言？",
+      "relevant_child_ids": [
+        2916,
+        2917
+      ]
+    },
+    {
+      "id": "q80",
+      "category": "代码查询",
+      "question": "LangGraph 的 StateGraph 如何定义状态、添加节点和边，最后为什么要 compile？",
+      "relevant_child_ids": [
+        3245,
+        3246
+      ]
+    },
+    {
+      "id": "q81",
+      "category": "代码查询",
+      "question": "LangGraph 中 interrupt() 暂停后，怎么用 Command(resume=...) 把值传回被暂停的节点？",
+      "relevant_child_ids": [
+        3300,
+        3328
+      ]
+    },
+    {
+      "id": "q82",
+      "category": "代码查询",
+      "question": "LangGraph 的 checkpointer 怎么配置？用 MemorySaver 时进程重启会发生什么？",
+      "relevant_child_ids": [
+        3320,
+        3322
+      ]
+    },
+    {
+      "id": "q83",
+      "category": "代码查询",
+      "question": "Deep Agents 的 write_todos 工具怎么启用？它用来做什么？",
+      "relevant_child_ids": [
+        2124,
+        2157
+      ]
+    },
+    {
+      "id": "q84",
+      "category": "代码查询",
+      "question": "Deep Agents 的 FilesystemBackend 读写的是什么位置的文件？virtual_mode 有什么作用？",
+      "relevant_child_ids": [
+        2341,
+        2342
       ]
     }
   ]
