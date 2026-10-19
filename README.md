@@ -25,11 +25,12 @@ Chroma 是可随时重建的派生索引；回答必须携带服务端校验过�
 | 能力 | 实现要点 |
 | --- | --- |
 | **网页知识收录** | URL 规范化与去重、SSRF 防护、`robots.txt` 合规检查、同主机限速、正文提取、结构感知切块、批量向量化、双索引写入 |
+| **异步入库** | 批量 URL 任务、单线程 FIFO Worker、逐条状态、失败重试、幂等键、重启恢复 |
 | **来源管理** | 分页列表、详情与状态查询、错误码回传、级联删除（关系数据 + 两处派生索引）、重复 URL 幂等处理 |
-| **混合检索** | Dense 向量召回 + BM25 稀疏召回并行执行，RRF 融合后恢复完整 Parent 上下文；支持相关性门槛与融合头部保底 |
+| **混合检索** | Dense 向量召回 + BM25 稀疏召回并行执行，RRF 融合 + Cross-Encoder rerank，失败时回退 RRF；支持相关性门槛与融合头部保底 |
 | **有据问答** | 证据按不可信输入包裹，模型只能引用上下文内标识；服务端逐条校验引用，无效引用剔除并标记；证据不足返回固定话术 |
 | **可运维** | 启动自检、索引全量/按来源重建、三处数据一致性校验、数据备份、滚动日志、`request_id` 全链路追踪 |
-| **工程质量** | 251 个测试、分支覆盖率 87.76%（门禁 85%）、Ruff + mypy 零错误、GitHub Actions CI |
+| **工程质量** | 257 个测试、分支覆盖率 87.89%（门禁 85%）、Ruff + mypy 零错误、GitHub Actions CI |
 
 ## 系统架构
 
@@ -37,11 +38,12 @@ Chroma 是可随时重建的派生索引；回答必须携带服务端校验过�
 flowchart TB
     subgraph CLIENT["调用方"]
         UI["浏览器 / API 客户端"]
-        AGENT["AI Learning Agent（预留接入）"]
+        AGENT["AI Learning Agent（已接入）"]
     end
 
     subgraph APILAYER["API 层 · FastAPI"]
         SRC["/api/v1/sources<br/>来源收录与管理"]
+        INGEST["/api/v1/ingestions<br/>批量异步入库"]
         SEARCH["/api/v1/search<br/>检索调试"]
         QUERY["/api/v1/query<br/>有据问答"]
         HEALTH["/health/live · /health/ready"]
@@ -50,6 +52,7 @@ flowchart TB
     subgraph SERVICE["应用服务层"]
         S1["SourceService"]
         S2["IngestionService"]
+        S5["JobService +<br/>IngestionWorker"]
         S3["RetrievalService"]
         S4["QAService"]
     end
@@ -70,9 +73,10 @@ flowchart TB
         LLM["LLM API<br/>DeepSeek"]
     end
 
-    UI --> SRC & SEARCH & QUERY & HEALTH
-    AGENT -.-> SRC & QUERY
+    UI --> SRC & INGEST & SEARCH & QUERY & HEALTH
+    AGENT -.-> INGEST & SEARCH & QUERY
     SRC --> S1 --> S2
+    INGEST --> S5 --> S2
     SEARCH --> S3
     QUERY --> S3 --> S4
     S2 --> D1 --> FETCH --> D2 --> EMB
@@ -84,8 +88,10 @@ flowchart TB
 两条核心流水线：
 
 ```text
-入库：URL 校验 → 抓取/正文提取 → 结构化切块 → Embedding → FTS5 + Chroma 写入 → 状态更新
-问答：问题 → Dense + BM25 双路召回 → RRF 融合 → 父级上下文恢复 → 相关性门槛 → LLM → 引用校验
+入库：URL 校验 → JobService → 单线程 Worker → 抓取/正文提取 → 结构化切块
+      → Embedding → FTS5 + Chroma 写入 → 逐条状态更新
+问答：问题 → Dense + BM25 双路召回 → RRF 融合 → Cross-Encoder rerank
+      → 父级上下文恢复 → 相关性门槛 → LLM → 引用校验
 ```
 
 ### 关键设计取舍
@@ -98,11 +104,12 @@ flowchart TB
   RRF 只使用物理排名融合，避免两路分数量纲不一致。
 - **跨三处存储用补偿清理**：SQLite、FTS5、Chroma 无法原子提交，写入失败时回滚已写
   部分，宁可失败可见，也不留下"只有向量库有、关系库没有"的脏数据。
-- **单机优先**：模块化单体、同步入库、单进程运行，刻意不引入 Docker、Redis 与任务
-  队列；用启动自检和 60 秒入库预算控制运行边界。
+- **单机优先**：模块化单体、单线程异步入库 Worker、单进程运行；不引入 Redis/Celery
+  等外部队列，用启动自检、队列上限和单 job 时间预算控制运行边界。
 
 完整设计、状态机、错误码与 13 条架构决策记录见
-[《项目开发说明_v1.md》](项目开发说明_v1.md)（唯一权威设计文档）。
+[《项目开发说明_v1.md》](项目开发说明_v1.md)（基础设计）与
+[《项目开发说明_v2.md》](项目开发说明_v2.md)（增量设计，冲突时以 v2 为准）。
 
 ## 项目目录
 
@@ -179,17 +186,36 @@ flowchart TB
 4181 个 Child。题库为 108 题：22 道原题 + 44 条同义改写 + 42 道官方文档新题，
 覆盖专有名词、语义改写、代码查询、跨章节与无答案五类场景。
 
+评测口径：
+
+- **Recall@5**：前 5 条中命中的相关 Child 数 / 该题全部相关 Child 数；
+- **HitRate@5**：前 5 条是否至少命中一个相关 Child；
+- **Precision@5**：命中的相关 Child 数 / 5。
+
 **v2 最终评测（108 题，2026-10-19，`eval-kb-v3`）：**
 
 | 指标 | 结果 |
 | --- | --- |
-| Recall@5 | **0.8387** |
-| Precision@5 | 0.2065 |
+| Recall@5（标准） | **0.6925** |
+| HitRate@5（至少命中一个） | 0.8387 |
+| Precision@5 | 0.2065（标注密度上限 0.3419，约为上限的 60.4%） |
 | MRR@10 | 0.6814 |
 | nDCG@10 | 0.6525 |
 | 引用有效率 | **1.0** |
 | 无答案识别率 | **1.0** |
 | rerank 生效 | 86/108（其余 fail-open 回退 RRF） |
+
+| 类型 | 题数 | Recall@5 | HitRate@5 | MRR@10 | nDCG@10 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 专有名词 | 28 | 0.6429 | 0.8214 | 0.6548 | 0.6262 |
+| 语义改写 | 43 | 0.7558 | 0.8372 | 0.7368 | 0.7224 |
+| 代码查询 | 13 | 0.7308 | 0.7692 | 0.4244 | 0.5393 |
+| 跨章节 | 9 | 0.4889 | 1.0000 | 0.8704 | 0.5640 |
+| 无答案 | 15 | — | — | — | — |
+
+分类样本量较小（代码查询 13 题、跨章节 9 题），分类结果只作方向性参考。
+完整结果见
+[108 题标准口径结果](tests/evals/results/2026-10-19-v2-108q-final2-standard.json)。
 
 真实 Agent→RAG 单链接联调（2026-10-19）已通过：FastAPI First Steps 入库 →
 完成通知 → `search_knowledge` 返回 6 条证据 → 回答带 `[S1]` 引用且来源可点击。
@@ -200,11 +226,11 @@ Cookbook 与 LangChain 官方博客。OpenAI/Anthropic 主站在当前网络受�
 由官方切块生成并人工抽查，相关 child_id 绑定到具体 chunk；跨章节题的标签已按同章节
 内容补充。语料或切块规则变化后需重新标注。
 
-**v1 检索基线（22 题，2026-10-15）：**
+**v1 检索基线（22 题，2026-10-15；历史结果，旧口径为 Any-Hit）：**
 
 | 指标 | 结果 |
 | --- | --- |
-| Recall@5 | **0.7647**（优化前 0.7059） |
+| Recall@5（旧 Any-Hit 口径） | **0.7647**（优化前 0.7059） |
 | Precision@5 | 0.2235 |
 | 引用有效率 | **1.0** |
 | 无答案识别率 | **1.0**（优化前 0.0） |
@@ -213,7 +239,7 @@ v2 已接入 Cross-Encoder rerank（失败时回退 RRF）。工程验证（2026
 
 | 检查 | 结果 |
 | --- | --- |
-| `pytest --cov` | 251 passed，分支覆盖率 **87.76%** |
+| `pytest --cov` | 257 passed，分支覆盖率 **87.89%** |
 | `ruff check .` | All checks passed |
 | `mypy` | 51 个源文件，无错误 |
 
@@ -246,8 +272,8 @@ V2 仍保持"单机、单用户、无前端"的边界：
 - 支持批量异步入库（单 job 最多 20 个 URL）；不做站点级爬虫、定时抓取与批量站点导入。
 - 生产 API 只解析静态 HTML；官方 Markdown 仅用于评测导入。不支持 PDF、图片、
   音视频与 JS 动态渲染页面。
-- v2 真实语料 Recall@5 为 0.8387，已达到 0.8 目标；剩余未命中仍集中在语义改写与
-  长文档定位，Query Rewrite 列为 V3 候选。
+- v2 标准 Recall@5 为 0.6925，尚未达到 0.8 目标；HitRate@5 为 0.8387。
+  剩余未命中仍集中在语义改写与长文档定位，Query Rewrite 列为 V3 候选。
 - rerank 依赖外部 API，评测中有 22/108 题因接口波动 fail-open 回退 RRF；不影响可用性，
   但会限制质量上限。
 - 生成侧目前只评估引用有效性与无答案识别率，尚未覆盖答案忠实性指标。
@@ -289,8 +315,8 @@ LLM_API_KEY=你的 DeepSeek Key
 其余参数均有默认值，含义见 [《项目开发说明_v1.md》10.2](项目开发说明_v1.md)。`.env` 已被
 `.gitignore` 排除，不会进入版本库。
 
-> v2 的 rerank 默认开启；未单独配置 `RERANK_API_KEY` 时会复用 Embedding Key。
-> 如需关闭可设置 `RERANK_ENABLED=false`，检索会回退到 RRF 排序。
+> `.env.example` 默认开启 rerank；代码安全默认关闭，未配置时不会访问 rerank API。
+> 未单独配置 `RERANK_API_KEY` 时会复用 Embedding Key；关闭后检索回退到 RRF 排序。
 
 ### 3. 启动服务
 
