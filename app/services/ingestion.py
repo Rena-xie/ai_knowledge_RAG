@@ -274,45 +274,57 @@ class IngestionService:
             stage = time.perf_counter()
             document = self._parser(fetched.html, url=fetched.url)
             self._log_stage(source_id, "parse", stage)
-            stage = time.perf_counter()
-            parents = chunk_markdown(
-                document.markdown,
-                parent_max_chars=self._settings.parent_max_chars,
-                child_target_chars=self._settings.child_target_chars,
-                child_max_chars=self._settings.child_max_chars,
-                child_overlap_chars=self._settings.child_overlap_chars,
-                fallback_heading_path=document.title,
+            return self._run_document_pipeline(source_id, document, deadline)
+        except Exception as error:
+            code = _error_code(error)
+            self._compensate(source_id)
+            self._source_service.mark_status(
+                source_id,
+                SourceStatus.FAILED,
+                error_code=code,
+                error_message=str(error),
             )
-            if not parents:
-                raise AppError(ErrorCode.PARSE_EMPTY_CONTENT, "切块结果为空")
-            self._log_stage(source_id, "chunk", stage)
-            self._check_deadline(deadline)
-            stage = time.perf_counter()
-            child_ids, embedding_texts = self._persist_chunks(source_id, parents)
-            self._log_stage(source_id, "persist", stage)
-            self._check_deadline(deadline)
-            stage = time.perf_counter()
-            embeddings = self._embedder.embed(
-                embedding_texts, budget_s=deadline - time.monotonic()
-            )
-            self._log_stage(source_id, "embed", stage)
-            self._check_deadline(deadline)
-            stage = time.perf_counter()
-            for child_id, text in zip(child_ids, embedding_texts, strict=True):
-                self._fts_index.upsert(child_id, text)
-            self._vector_index.upsert(
-                child_ids,
-                embeddings,
-                [{"source_id": source_id} for _ in child_ids],
-            )
-            self._log_stage(source_id, "index", stage)
-            self._check_deadline(deadline)
-            self._finish(source_id, document)
+            raise AppError(code, str(error)) from error
+
+    def ingest_markdown(
+        self,
+        url: str,
+        markdown: str,
+        *,
+        title: str | None = None,
+    ) -> IngestResult:
+        """从已清洗的 Markdown 入库（用于官方文档仓库等无 HTML 的来源）。"""
+
+        submit = self._source_service.get_or_create(url)
+        source_id = submit.source.id
+        if not submit.triggered:
             return IngestResult(
                 source_id=source_id,
-                status=SourceStatus.COMPLETED.value,
-                triggered=True,
-                child_count=len(child_ids),
+                status=str(submit.source.status),
+                triggered=False,
+                child_count=self._child_count(source_id),
+            )
+        if not self._lock.acquire(timeout=self._settings.ingest_lock_timeout_s):
+            self._mark_ingest_busy(source_id)
+            raise AppError(ErrorCode.INGEST_BUSY, "已有入库任务在执行")
+        try:
+            self._source_service.mark_status(
+                source_id, SourceStatus.PROCESSING
+            )
+            text = (markdown or "").strip()
+            if not text:
+                raise AppError(
+                    ErrorCode.PARSE_EMPTY_CONTENT, "Markdown 正文为空"
+                )
+            document = ParsedDocument(
+                title=title or _markdown_title(text),
+                markdown=text,
+            )
+            deadline = (
+                time.monotonic() + self._settings.ingest_timeout_s
+            )
+            return self._run_document_pipeline(
+                source_id, document, deadline
             )
         except Exception as error:
             code = _error_code(error)
@@ -324,6 +336,59 @@ class IngestionService:
                 error_message=str(error),
             )
             raise AppError(code, str(error)) from error
+        finally:
+            self._lock.release()
+
+    def _run_document_pipeline(
+        self,
+        source_id: int,
+        document: ParsedDocument,
+        deadline: float,
+    ) -> IngestResult:
+        stage = time.perf_counter()
+        parents = chunk_markdown(
+            document.markdown,
+            parent_max_chars=self._settings.parent_max_chars,
+            child_target_chars=self._settings.child_target_chars,
+            child_max_chars=self._settings.child_max_chars,
+            child_overlap_chars=self._settings.child_overlap_chars,
+            fallback_heading_path=document.title,
+        )
+        if not parents:
+            raise AppError(ErrorCode.PARSE_EMPTY_CONTENT, "切块结果为空")
+        self._log_stage(source_id, "chunk", stage)
+        self._check_deadline(deadline)
+        stage = time.perf_counter()
+        child_ids, embedding_texts = self._persist_chunks(
+            source_id, parents
+        )
+        self._log_stage(source_id, "persist", stage)
+        self._check_deadline(deadline)
+        stage = time.perf_counter()
+        embeddings = self._embedder.embed(
+            embedding_texts, budget_s=deadline - time.monotonic()
+        )
+        self._log_stage(source_id, "embed", stage)
+        self._check_deadline(deadline)
+        stage = time.perf_counter()
+        for child_id, text in zip(
+            child_ids, embedding_texts, strict=True
+        ):
+            self._fts_index.upsert(child_id, text)
+        self._vector_index.upsert(
+            child_ids,
+            embeddings,
+            [{"source_id": source_id} for _ in child_ids],
+        )
+        self._log_stage(source_id, "index", stage)
+        self._check_deadline(deadline)
+        self._finish(source_id, document)
+        return IngestResult(
+            source_id=source_id,
+            status=SourceStatus.COMPLETED.value,
+            triggered=True,
+            child_count=len(child_ids),
+        )
 
     def _persist_chunks(
         self, source_id: int, parents: Sequence[DomainParent]
@@ -520,3 +585,10 @@ def _error_code(error: Exception) -> ErrorCode:
     if isinstance(error, TimeoutError):
         return ErrorCode.INGEST_TIMEOUT
     return ErrorCode.INTERNAL_ERROR
+
+
+def _markdown_title(markdown: str) -> str | None:
+    for line in markdown.splitlines():
+        if line.startswith("# "):
+            return line[2:].strip() or None
+    return None

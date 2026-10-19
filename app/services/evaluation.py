@@ -40,6 +40,7 @@ class QuestionResult:
     precision_at_5: float | None = None
     mrr_at_10: float | None = None
     ndcg_at_10: float | None = None
+    rerank_applied: bool = False
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,7 @@ class EvalReport:
                     "precision_at_5": result.precision_at_5,
                     "mrr_at_10": result.mrr_at_10,
                     "ndcg_at_10": result.ndcg_at_10,
+                    "rerank_applied": result.rerank_applied,
                 }
                 for result in self.results
             ],
@@ -130,6 +132,7 @@ class EvaluationRunner:
                     precision_at_5=precision,
                     mrr_at_10=mrr,
                     ndcg_at_10=ndcg,
+                    rerank_applied=retrieval.rerank_applied,
                 )
             )
         return self._summarize(questions, results)

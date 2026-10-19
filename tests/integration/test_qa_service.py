@@ -42,6 +42,19 @@ class FakeLLM:
         return LLMResult(text=self._text, prompt_tokens=10, completion_tokens=5)
 
 
+class SequenceLLM:
+    def __init__(self, texts: list[str]) -> None:
+        self._texts = texts
+        self.calls = 0
+
+    def complete(self, *, system_prompt: str, user_prompt: str) -> LLMResult:
+        self.calls += 1
+        index = min(self.calls - 1, len(self._texts) - 1)
+        return LLMResult(
+            text=self._texts[index], prompt_tokens=10, completion_tokens=5
+        )
+
+
 def make_evidence(child_id: int = 2) -> Evidence:
     return Evidence(
         source_id=1,
@@ -106,20 +119,26 @@ def test_answer_returns_validated_citations(prompt_dir: Path) -> None:
     assert result.prompt_tokens == 10
 
 
-def test_invalid_citation_is_stripped_and_flagged(prompt_dir: Path) -> None:
+def test_invalid_citation_retry_falls_back_to_insufficient(
+    prompt_dir: Path,
+) -> None:
     retrieval = FakeRetrieval(make_result(make_evidence()))
     llm = FakeLLM(text="答案 [S9:C9]")
     service = build_service(retrieval, llm, prompt_dir)
 
     result = service.answer("问题")
 
-    assert result.citations_validated is False
+    assert result.answer_type == "insufficient_evidence"
+    assert result.text == INSUFFICIENT_EVIDENCE_TEXT
+    assert result.citations_validated is True
     assert result.citations == ()
-    assert result.text == "答案"
+    assert llm.calls == 2
 
 
-def test_answer_without_citations_is_flagged(prompt_dir: Path) -> None:
-    """answered 但零引用的回答不满足引用契约（见 7.4 第 2、3 点）。"""
+def test_answer_without_citations_falls_back_to_insufficient(
+    prompt_dir: Path,
+) -> None:
+    """重试后仍无有效引用时，不返回无引用的 answered。"""
 
     retrieval = FakeRetrieval(make_result(make_evidence()))
     llm = FakeLLM(text="这是一段没有引用的回答")
@@ -127,9 +146,26 @@ def test_answer_without_citations_is_flagged(prompt_dir: Path) -> None:
 
     result = service.answer("问题")
 
-    assert result.answer_type == "answered"
+    assert result.answer_type == "insufficient_evidence"
+    assert result.text == INSUFFICIENT_EVIDENCE_TEXT
     assert result.citations == ()
-    assert result.citations_validated is False
+    assert result.citations_validated is True
+    assert llm.calls == 2
+
+
+def test_retry_repairs_missing_citation(prompt_dir: Path) -> None:
+    retrieval = FakeRetrieval(make_result(make_evidence()))
+    llm = SequenceLLM(["没有引用的回答", "答案 [S1:C2]"])
+    service = build_service(retrieval, llm, prompt_dir)
+
+    result = service.answer("问题")
+
+    assert result.answer_type == "answered"
+    assert result.citations_validated is True
+    assert result.citations[0].child_id == 2
+    assert llm.calls == 2
+    assert result.prompt_tokens == 20
+    assert result.completion_tokens == 10
 
 
 def test_evidence_text_neutralizes_forged_citation_markers(

@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
+import re
 from collections.abc import Sequence
 from pathlib import Path
+from urllib.parse import quote
 
+import httpx
 from sqlalchemy import select
 
 from app.api.deps import Container
@@ -20,6 +24,10 @@ DEFAULT_CORPUS = Path("tests/evals/corpus.json")
 DEFAULT_QUESTIONS = Path("tests/evals/questions.json")
 DEFAULT_OUTPUT_DIR = Path("tests/evals/results")
 DEFAULT_WORKDIR_NAME = "eval-kb"
+
+_GITHUB_BLOB = re.compile(
+    r"https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)"
+)
 
 
 def default_workdir() -> Path:
@@ -45,6 +53,49 @@ def load_corpus(path: Path) -> list[str]:
     return urls
 
 
+def _github_blob_parts(url: str) -> tuple[str, str, str, str] | None:
+    match = _GITHUB_BLOB.fullmatch(url)
+    if match is None:
+        return None
+    return match.group(1), match.group(2), match.group(3), match.group(4)
+
+
+def fetch_github_markdown(
+    client: httpx.Client, url: str
+) -> tuple[str, str | None]:
+    """通过 GitHub API 读取官方仓库 Markdown，绕开 HTML 页面抓取。”
+    """
+
+    parts = _github_blob_parts(url)
+    if parts is None:
+        raise ValueError(f"不是 GitHub blob 地址: {url}")
+    owner, repo, branch, path = parts
+    response = client.get(
+        f"https://api.github.com/repos/{owner}/{repo}/contents/"
+        f"{quote(path, safe='/')}",
+        params={"ref": branch},
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "ai-knowledge-base-eval",
+        },
+    )
+    response.raise_for_status()
+    payload = response.json()
+    encoded = payload.get("content") if isinstance(payload, dict) else None
+    if not isinstance(encoded, str):
+        raise ValueError(f"GitHub API 未返回 content: {url}")
+    markdown = base64.b64decode(encoded).decode("utf-8")
+    title = next(
+        (
+            line[2:].strip()
+            for line in markdown.splitlines()
+            if line.startswith("# ")
+        ),
+        None,
+    )
+    return markdown, title
+
+
 def build_corpus_container(urls: Sequence[str], workdir: Path) -> Container:
     """把语料 URL 依次入库到评测知识库，返回容器。
 
@@ -59,17 +110,34 @@ def build_corpus_container(urls: Sequence[str], workdir: Path) -> Container:
     container = Container(settings)
     total = len(urls)
     failed: list[tuple[str, str]] = []
-    for index, url in enumerate(urls, start=1):
-        try:
-            result = container.ingestion_service.ingest(url)
-        except AppError as error:
-            failed.append((url, error.code.value))
-            print(f"[{index}/{total}] FAILED {error.code.value} {url}")
-            continue
-        print(
-            f"[{index}/{total}] {result.status} triggered={result.triggered} "
-            f"children={result.child_count} {url}"
-        )
+    with httpx.Client(timeout=30, follow_redirects=True) as github_client:
+        for index, url in enumerate(urls, start=1):
+            try:
+                if _github_blob_parts(url) is not None:
+                    markdown, title = fetch_github_markdown(
+                        github_client, url
+                    )
+                    result = container.ingestion_service.ingest_markdown(
+                        url, markdown, title=title
+                    )
+                else:
+                    result = container.ingestion_service.ingest(url)
+            except AppError as error:
+                failed.append((url, error.code.value))
+                print(f"[{index}/{total}] FAILED {error.code.value} {url}")
+                continue
+            except Exception as error:  # noqa: BLE001 - 单个页面失败继续
+                failed.append((url, type(error).__name__))
+                print(
+                    f"[{index}/{total}] FAILED "
+                    f"{type(error).__name__}: {error} {url}"
+                )
+                continue
+            print(
+                f"[{index}/{total}] {result.status} "
+                f"triggered={result.triggered} "
+                f"children={result.child_count} {url}"
+            )
     print(f"入库完成：成功 {total - len(failed)}，失败 {len(failed)}")
     for url, code in failed:
         print(f"  失败 {code} {url}")

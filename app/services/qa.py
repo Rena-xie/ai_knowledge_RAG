@@ -111,6 +111,47 @@ class QAService:
             raise AppError(ErrorCode.LLM_FAILED, str(error)) from error
 
         validation = validate_citations(llm_result.text, set(by_id))
+        prompt_tokens = llm_result.prompt_tokens
+        completion_tokens = llm_result.completion_tokens
+        if not validation.citations or not validation.citations_validated:
+            retry_prompt = (
+                rendered
+                + "\n\n【引用修复】上一次回答缺少有效引用。"
+                "请重新回答，并确保每个关键结论后至少有一个来自 "
+                "<evidence> 的引用，格式严格为 [S{source_id}:C{child_id}]。"
+            )
+            try:
+                retry_result = self._llm_client.complete(
+                    system_prompt=system_prompt, user_prompt=retry_prompt
+                )
+            except LLMError:
+                return AnswerResult(
+                    text=INSUFFICIENT_EVIDENCE_TEXT,
+                    answer_type=ANSWER_TYPE_INSUFFICIENT,
+                    citations=(),
+                    citations_validated=True,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                )
+            prompt_tokens += retry_result.prompt_tokens
+            completion_tokens += retry_result.completion_tokens
+            retry_validation = validate_citations(
+                retry_result.text, set(by_id)
+            )
+            if (
+                retry_validation.citations
+                and retry_validation.citations_validated
+            ):
+                validation = retry_validation
+            else:
+                return AnswerResult(
+                    text=INSUFFICIENT_EVIDENCE_TEXT,
+                    answer_type=ANSWER_TYPE_INSUFFICIENT,
+                    citations=(),
+                    citations_validated=True,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                )
         citations = tuple(
             AnswerCitation(
                 source_id=citation.source_id,
@@ -129,8 +170,8 @@ class QAService:
             citations=citations,
             # answered 的回答必须至少包含一个有效引用（见 7.4 第 2、3 点）
             citations_validated=validation.citations_validated and bool(citations),
-            prompt_tokens=llm_result.prompt_tokens,
-            completion_tokens=llm_result.completion_tokens,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
         )
 
     @staticmethod
