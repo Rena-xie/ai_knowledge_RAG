@@ -1,7 +1,7 @@
 {
-  "version": 1,
-  "snapshot": "2026-10-15",
-  "note": "评测语料：真实公开文档站点；入库顺序即 urls 顺序，决定 child_id，站点内容变化后需重新标注题库。",
+  "version": 2,
+  "snapshot": "2026-10-19",
+  "note": "评测语料：真实公开官方文档；原始 124 个 URL 顺序保持不变，官方文档与博客追加在末尾；GitHub Cookbook 通过 GitHub API 读取 Markdown；入库顺序决定 child_id，页面内容变化后需重新标注。",
   "collections": [
     {
       "name": "廖雪峰 Python 教程",
@@ -135,6 +135,78 @@
         "https://docs.langchain.com/oss/python/deepagents/customization",
         "https://docs.langchain.com/oss/python/deepagents/skills",
         "https://docs.langchain.com/oss/python/deepagents/human-in-the-loop"
+      ]
+    },
+    {
+      "name": "FastAPI 官方文档",
+      "urls": [
+        "https://fastapi.tiangolo.com/tutorial/first-steps/",
+        "https://fastapi.tiangolo.com/tutorial/path-params/",
+        "https://fastapi.tiangolo.com/tutorial/query-params/",
+        "https://fastapi.tiangolo.com/tutorial/body/",
+        "https://fastapi.tiangolo.com/tutorial/dependencies/",
+        "https://fastapi.tiangolo.com/tutorial/security/",
+        "https://fastapi.tiangolo.com/tutorial/bigger-applications/",
+        "https://fastapi.tiangolo.com/tutorial/testing/"
+      ]
+    },
+    {
+      "name": "LangChain 官方文档",
+      "urls": [
+        "https://docs.langchain.com/oss/python/langchain/overview",
+        "https://docs.langchain.com/oss/python/langchain/agents",
+        "https://docs.langchain.com/oss/python/langchain/context-engineering",
+        "https://docs.langchain.com/oss/python/langchain/knowledge-base",
+        "https://docs.langchain.com/oss/python/langchain/long-term-memory",
+        "https://docs.langchain.com/oss/python/langchain/human-in-the-loop",
+        "https://docs.langchain.com/oss/python/langchain/guardrails",
+        "https://docs.langchain.com/oss/python/langchain/mcp"
+      ]
+    },
+    {
+      "name": "LangGraph 官方文档",
+      "urls": [
+        "https://docs.langchain.com/oss/python/langgraph/overview",
+        "https://docs.langchain.com/oss/python/langgraph/graph-api",
+        "https://docs.langchain.com/oss/python/langgraph/persistence",
+        "https://docs.langchain.com/oss/python/langgraph/interrupts",
+        "https://docs.langchain.com/oss/python/langgraph/fault-tolerance",
+        "https://docs.langchain.com/oss/python/langgraph/agentic-rag",
+        "https://docs.langchain.com/oss/python/langgraph/use-subgraphs",
+        "https://docs.langchain.com/oss/python/langgraph/observability"
+      ]
+    },
+    {
+      "name": "LangChain 官方博客",
+      "urls": [
+        "https://www.langchain.com/blog/a-chunk-by-any-other-name",
+        "https://www.langchain.com/blog/agentic-rag-with-langgraph",
+        "https://www.langchain.com/blog/agent-evaluation-readiness-checklist",
+        "https://www.langchain.com/blog/applying-openai-rag",
+        "https://www.langchain.com/blog/auto-eval-of-question-answering-tasks",
+        "https://www.langchain.com/blog/agent-frameworks-runtimes-and-harnesses-oh-my"
+      ]
+    },
+    {
+      "name": "OpenAI Cookbook 官方文章",
+      "urls": [
+        "https://github.com/openai/openai-cookbook/blob/main/articles/techniques_to_improve_reliability.md",
+        "https://github.com/openai/openai-cookbook/blob/main/examples/evaluation/Building_resilient_prompts_using_an_evaluation_flywheel.md",
+        "https://github.com/openai/openai-cookbook/blob/main/examples/chatgpt/chatgpt_prompt_guide/chatgpt_prompt_guide.md",
+        "https://github.com/openai/openai-cookbook/blob/main/articles/openai-harmony.md",
+        "https://github.com/openai/openai-cookbook/blob/main/articles/per_run_spending_controller_responses_api.md",
+        "https://github.com/openai/openai-cookbook/blob/main/examples/codex/code_modernization.md"
+      ]
+    },
+    {
+      "name": "Anthropic Claude Cookbook 官方文档",
+      "urls": [
+        "https://github.com/anthropics/anthropic-cookbook/blob/main/claude_agent_sdk/README.md",
+        "https://github.com/anthropics/anthropic-cookbook/blob/main/claude_agent_sdk/hosting/kubernetes/README.md",
+        "https://github.com/anthropics/anthropic-cookbook/blob/main/capabilities/retrieval_augmented_generation/evaluation/README.md",
+        "https://github.com/anthropics/anthropic-cookbook/blob/main/capabilities/content_moderation/README.md",
+        "https://github.com/anthropics/anthropic-cookbook/blob/main/capabilities/classification/evaluation/README.md",
+        "https://github.com/anthropics/anthropic-cookbook/blob/main/skills/README.md"
       ]
     }
   ]

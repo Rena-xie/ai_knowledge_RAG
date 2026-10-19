@@ -1,9 +1,9 @@
 {
-  "version": 3,
+  "version": 5,
   "corpus": "tests/evals/corpus.json",
   "chunker_version": "v1",
-  "snapshot": "2026-10-15",
-  "note": "相关 child_id 基于 2026-10-15 真实语料快照人工标注；qXXa/qXXb 为同义改写，沿用原题标注；语料、切块规则或页面内容变化后需重新标注。",
+  "snapshot": "2026-10-19",
+  "note": "原 22 题及同义改写基于 2026-10-15 语料；新增 42 道官方文档题基于 2026-10-19 eval-kb-v3 快照；跨章节题补充同章节相关 child_id；无答案题改为语料外主题；语料或切块变化后需重新标注。",
   "questions": [
     {
       "id": "q01",
@@ -380,8 +380,9 @@
       "question": "Python 的 list、tuple 和 dict 分别适合什么场景？",
       "relevant_child_ids": [
         185,
+        213,
         286,
-        288
+        302
       ]
     },
     {
@@ -390,8 +391,9 @@
       "question": "list、tuple、dict 三种数据结构分别适合哪些使用场景？",
       "relevant_child_ids": [
         185,
+        213,
         286,
-        288
+        302
       ]
     },
     {
@@ -400,8 +402,9 @@
       "question": "在 Python 中如何选择列表、元组和字典？",
       "relevant_child_ids": [
         185,
+        213,
         286,
-        288
+        302
       ]
     },
     {
@@ -410,7 +413,10 @@
       "question": "从编码角度解释 Python 3 的字符串为什么默认是 Unicode？",
       "relevant_child_ids": [
         142,
-        143
+        143,
+        144,
+        146,
+        150
       ]
     },
     {
@@ -419,7 +425,10 @@
       "question": "为什么 Python 3 的 str 默认使用 Unicode 编码？",
       "relevant_child_ids": [
         142,
-        143
+        143,
+        144,
+        146,
+        150
       ]
     },
     {
@@ -428,7 +437,10 @@
       "question": "从字符编码的角度解释 Python 3 字符串的默认行为。",
       "relevant_child_ids": [
         142,
-        143
+        143,
+        144,
+        146,
+        150
       ]
     },
     {
@@ -437,7 +449,10 @@
       "question": "Deep Agents 怎么在敏感操作前暂停并等待人工确认？",
       "relevant_child_ids": [
         2096,
-        2130
+        2129,
+        2559,
+        2567,
+        2576
       ]
     },
     {
@@ -446,7 +461,10 @@
       "question": "Deep Agents 如何在执行敏感操作前请求人工批准？",
       "relevant_child_ids": [
         2096,
-        2130
+        2129,
+        2559,
+        2567,
+        2576
       ]
     },
     {
@@ -455,98 +473,437 @@
       "question": "LangChain Deep Agents 的人工确认机制是怎么工作的？",
       "relevant_child_ids": [
         2096,
-        2130
+        2129,
+        2559,
+        2567,
+        2576
       ]
     },
     {
       "id": "q18",
       "category": "无答案",
-      "question": "Kubernetes Ingress 怎么配置 TLS 证书？",
+      "question": "Rust 的借用检查器如何在编译期防止数据竞争？",
       "relevant_child_ids": []
     },
     {
       "id": "q18a",
       "category": "无答案",
-      "question": "Kubernetes Ingress 的 TLS 证书应该怎样配置？",
+      "question": "Rust 为什么能在不引入垃圾回收的情况下保证内存安全？",
       "relevant_child_ids": []
     },
     {
       "id": "q18b",
       "category": "无答案",
-      "question": "如何在 Kubernetes 中为 Ingress 启用 HTTPS？",
+      "question": "解释 Rust 借用检查器与所有权规则的关系。",
       "relevant_child_ids": []
     },
     {
       "id": "q19",
       "category": "无答案",
-      "question": "Redis 的 RDB 和 AOF 持久化有什么区别？",
+      "question": "COBOL 的 REDEFINES 子句如何影响记录的内存布局？",
       "relevant_child_ids": []
     },
     {
       "id": "q19a",
       "category": "无答案",
-      "question": "Redis 的 RDB 快照和 AOF 日志持久化方式有什么不同？",
+      "question": "COBOL 中 REDEFINES 的作用是什么？",
       "relevant_child_ids": []
     },
     {
       "id": "q19b",
       "category": "无答案",
-      "question": "Redis 持久化选 RDB 还是 AOF？",
+      "question": "解释 COBOL 记录定义中 REDEFINES 子句的语义。",
       "relevant_child_ids": []
     },
     {
       "id": "q20",
       "category": "无答案",
-      "question": "PyTorch 的自动求导是怎么实现的？",
+      "question": "C++11 的移动语义解决了什么问题？",
       "relevant_child_ids": []
     },
     {
       "id": "q20a",
       "category": "无答案",
-      "question": "PyTorch 的 autograd 是怎么工作的？",
+      "question": "C++ 中的右值引用和移动构造有什么作用？",
       "relevant_child_ids": []
     },
     {
       "id": "q20b",
       "category": "无答案",
-      "question": "解释 PyTorch 自动微分机制的实现原理。",
+      "question": "为什么 C++ 移动语义能减少不必要的拷贝？",
       "relevant_child_ids": []
     },
     {
       "id": "q21",
       "category": "无答案",
-      "question": "怎么用 GitHub Actions 配置 CI 流水线？",
+      "question": "SwiftUI 中 @State 和 @Binding 有什么区别？",
       "relevant_child_ids": []
     },
     {
       "id": "q21a",
       "category": "无答案",
-      "question": "如何用 GitHub Actions 搭建持续集成流程？",
+      "question": "SwiftUI 的 @State 与 @Binding 分别适合什么场景？",
       "relevant_child_ids": []
     },
     {
       "id": "q21b",
       "category": "无答案",
-      "question": "GitHub Actions 的 CI 配置应该怎么写？",
+      "question": "如何在 SwiftUI 的父子视图之间共享状态？",
       "relevant_child_ids": []
     },
     {
       "id": "q22",
       "category": "无答案",
-      "question": "Excel 数据透视表怎么做？",
+      "question": "Unity 的 ECS/DOTS 如何组织实体与组件？",
       "relevant_child_ids": []
     },
     {
       "id": "q22a",
       "category": "无答案",
-      "question": "Excel 里如何创建数据透视表？",
+      "question": "Unity DOTS 中 Entity、Component 和 System 的关系是什么？",
       "relevant_child_ids": []
     },
     {
       "id": "q22b",
       "category": "无答案",
-      "question": "数据透视表在 Excel 中怎么用？",
+      "question": "解释 Unity ECS 面向数据设计的基本思想。",
       "relevant_child_ids": []
+    },
+    {
+      "id": "q23",
+      "category": "专有名词",
+      "question": "FastAPI 官方为 VS Code（以及 Cursor）提供的扩展包含哪些功能？请列出文中提到的三项。",
+      "relevant_child_ids": [
+        2582
+      ]
+    },
+    {
+      "id": "q24",
+      "category": "语义改写",
+      "question": "在 FastAPI 示例中，路径参数 item_id 的值会以什么形式传递给函数？",
+      "relevant_child_ids": [
+        2648
+      ]
+    },
+    {
+      "id": "q25",
+      "category": "代码查询",
+      "question": "在 FastAPI 的 /items/ 路由示例中，read_item 函数的 skip 参数默认值是多少？",
+      "relevant_child_ids": [
+        2693
+      ]
+    },
+    {
+      "id": "q26",
+      "category": "语义改写",
+      "question": "当客户端（例如浏览器）需要向 API 发送数据时，应把数据作为什么发送？",
+      "relevant_child_ids": [
+        2741
+      ]
+    },
+    {
+      "id": "q27",
+      "category": "语义改写",
+      "question": "FastAPI 的依赖注入系统在设计上有什么特点？",
+      "relevant_child_ids": [
+        2768
+      ]
+    },
+    {
+      "id": "q28",
+      "category": "语义改写",
+      "question": "官方文档认为处理安全、身份验证和授权通常是一个怎样的主题？",
+      "relevant_child_ids": [
+        2808
+      ]
+    },
+    {
+      "id": "q29",
+      "category": "语义改写",
+      "question": "FastAPI 提供了什么便利工具来构建应用结构？",
+      "relevant_child_ids": [
+        2818
+      ]
+    },
+    {
+      "id": "q30",
+      "category": "专有名词",
+      "question": "FastAPI 应用测试所基于的 HTTP 客户端库是什么？",
+      "relevant_child_ids": [
+        2915
+      ]
+    },
+    {
+      "id": "q31",
+      "category": "专有名词",
+      "question": "LangChain 提供的 create_agent 具有什么特点？",
+      "relevant_child_ids": [
+        2947
+      ]
+    },
+    {
+      "id": "q32",
+      "category": "专有名词",
+      "question": "围绕智能体工具调用循环的提示词、工具以及塑造模型行为的中间件等所有内容，被称为什么？",
+      "relevant_child_ids": [
+        2960
+      ]
+    },
+    {
+      "id": "q33",
+      "category": "语义改写",
+      "question": "智能体不可靠更常见是由什么原因导致的？",
+      "relevant_child_ids": [
+        3068
+      ]
+    },
+    {
+      "id": "q34",
+      "category": "语义改写",
+      "question": "使用 LangChain 构建的许多应用通常会包含哪些步骤和 LLM 调用？",
+      "relevant_child_ids": [
+        3122
+      ]
+    },
+    {
+      "id": "q35",
+      "category": "语义改写",
+      "question": "长期记忆与短期记忆在作用范围上有什么不同？",
+      "relevant_child_ids": [
+        3141
+      ]
+    },
+    {
+      "id": "q36",
+      "category": "语义改写",
+      "question": "Human-in-the-Loop（HITL）中间件允许你为智能体的工具调用添加哪类人工介入？",
+      "relevant_child_ids": [
+        3176
+      ]
+    },
+    {
+      "id": "q37",
+      "category": "语义改写",
+      "question": "Guardrails 通过什么方式帮助构建安全、合规的 AI 应用？",
+      "relevant_child_ids": [
+        3203
+      ]
+    },
+    {
+      "id": "q38",
+      "category": "专有名词",
+      "question": "LangChain agents 通过哪个组件调用定义在 MCP 服务器上的工具？",
+      "relevant_child_ids": [
+        3219
+      ]
+    },
+    {
+      "id": "q39",
+      "category": "专有名词",
+      "question": "LangGraph 被哪些公司信赖并用于塑造智能体的未来？",
+      "relevant_child_ids": [
+        3229
+      ]
+    },
+    {
+      "id": "q40",
+      "category": "专有名词",
+      "question": "在定义智能体行为时，用来表示应用当前快照的共享数据结构叫什么？",
+      "relevant_child_ids": [
+        3241
+      ]
+    },
+    {
+      "id": "q41",
+      "category": "语义改写",
+      "question": "LangGraph 应用借助持久化可以在单次图运行之外保留什么？",
+      "relevant_child_ids": [
+        3317
+      ]
+    },
+    {
+      "id": "q42",
+      "category": "语义改写",
+      "question": "Interrupts 机制让图执行在特定点暂停后，需要等待什么才能继续？",
+      "relevant_child_ids": [
+        3328
+      ]
+    },
+    {
+      "id": "q43",
+      "category": "语义改写",
+      "question": "LangGraph 的 Retries 机制会依据哪些设置自动重新运行失败的尝试？",
+      "relevant_child_ids": [
+        3371
+      ]
+    },
+    {
+      "id": "q44",
+      "category": "语义改写",
+      "question": "用 LangGraph 构建的检索代理会决定何时搜索向量存储、何时直接回答用户吗？",
+      "relevant_child_ids": [
+        3404
+      ]
+    },
+    {
+      "id": "q45",
+      "category": "专有名词",
+      "question": "在 LangGraph 中，把一个图当作另一个图的节点来使用时，这种图被称为什么？",
+      "relevant_child_ids": [
+        3422
+      ]
+    },
+    {
+      "id": "q46",
+      "category": "专有名词",
+      "question": "在 LangSmith 中，应用程序从输入到输出所经历的每个单独执行步骤由什么表示？",
+      "relevant_child_ids": [
+        3445
+      ]
+    },
+    {
+      "id": "q47",
+      "category": "专有名词",
+      "question": "Martin Zirulnik 最近为 LangChain 贡献了什么组件？",
+      "relevant_child_ids": [
+        3454
+      ]
+    },
+    {
+      "id": "q48",
+      "category": "语义改写",
+      "question": "为什么大多数大型语言模型会缺少最新信息，或者缺少无法用于训练的私有数据？",
+      "relevant_child_ids": [
+        3569
+      ]
+    },
+    {
+      "id": "q49",
+      "category": "专有名词",
+      "question": "这份检查清单是作为哪篇文章的实用配套材料？",
+      "relevant_child_ids": [
+        3585
+      ]
+    },
+    {
+      "id": "q50",
+      "category": "语义改写",
+      "question": "OpenAI 在 demo day 上报告了一系列 RAG 实验，这些实验是与哪类对象合作开展的？",
+      "relevant_child_ids": [
+        3646
+      ]
+    },
+    {
+      "id": "q51",
+      "category": "语义改写",
+      "question": "像 LangChain 这样的 LLM 运维平台，能让用户轻松把哪些 LLM 组件组装成链？",
+      "relevant_child_ids": [
+        3662
+      ]
+    },
+    {
+      "id": "q52",
+      "category": "专有名词",
+      "question": "除了 LangChain 和 LangGraph，文中提到哪个开源包正变得越来越受欢迎？",
+      "relevant_child_ids": [
+        3668
+      ]
+    },
+    {
+      "id": "q53",
+      "category": "语义改写",
+      "question": "当 GPT-3 在某个任务上失败时，可以尝试哪两种具体做法来获得更可靠的回答？",
+      "relevant_child_ids": [
+        3674
+      ]
+    },
+    {
+      "id": "q54",
+      "category": "语义改写",
+      "question": "根据这份 cookbook 的说明，可以使用 OpenAI Platform 轻松为提示词构建哪方面的能力？",
+      "relevant_child_ids": [
+        3745
+      ]
+    },
+    {
+      "id": "q55",
+      "category": "语义改写",
+      "question": "哪类企业用户适合阅读这份无需高级技术专长、以实例驱动的 ChatGPT 实用指南？",
+      "relevant_child_ids": [
+        3776
+      ]
+    },
+    {
+      "id": "q56",
+      "category": "专有名词",
+      "question": "gpt-oss 模型为了定义对话结构、生成推理输出和构建函数调用，接受了哪种响应格式的训练？",
+      "relevant_child_ids": [
+        3857
+      ]
+    },
+    {
+      "id": "q57",
+      "category": "语义改写",
+      "question": "使用 Responses API 的智能体在完成一个任务时，可能会怎样调用模型？",
+      "relevant_child_ids": [
+        3929
+      ]
+    },
+    {
+      "id": "q58",
+      "category": "语义改写",
+      "question": "Codex 被训练来对大型复杂代码库进行哪些工作？",
+      "relevant_child_ids": [
+        3954
+      ]
+    },
+    {
+      "id": "q59",
+      "category": "语义改写",
+      "question": "安装 uv、Node.js 和 Claude Code CLI 时，npm 步骤在什么情况下是可选的？",
+      "relevant_child_ids": [
+        4015
+      ]
+    },
+    {
+      "id": "q60",
+      "category": "语义改写",
+      "question": "如果还没有选定托管层级，文档建议先从哪里开始了解各方案的适用情况？",
+      "relevant_child_ids": [
+        4061
+      ]
+    },
+    {
+      "id": "q61",
+      "category": "语义改写",
+      "question": "使用 Promptfoo 之前需要在系统中安装哪些工具？",
+      "relevant_child_ids": [
+        4094
+      ]
+    },
+    {
+      "id": "q62",
+      "category": "语义改写",
+      "question": "在内容审核中，内容发布前要对照什么进行检查，检查后可能采取哪三种处理方式？",
+      "relevant_child_ids": [
+        4104
+      ]
+    },
+    {
+      "id": "q63",
+      "category": "语义改写",
+      "question": "使用 Promptfoo 前，系统需要预先安装哪两个工具？",
+      "relevant_child_ids": [
+        4117
+      ]
+    },
+    {
+      "id": "q64",
+      "category": "语义改写",
+      "question": "Claude 的 Skills 功能可被用于哪三类任务？",
+      "relevant_child_ids": [
+        4123
+      ]
     }
   ]
 }
