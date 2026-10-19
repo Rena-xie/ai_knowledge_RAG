@@ -235,6 +235,16 @@ def run_eval(
             "created_at": utc_now_iso(),
             "questions_file": str(args.questions),
             "corpus": "current-db" if args.use_current_db else str(args.corpus),
+            "workdir": (
+                "current-db"
+                if args.use_current_db
+                else str(
+                    args.workdir
+                    if args.workdir is not None
+                    else default_workdir()
+                )
+            ),
+            "rerank_enabled": get_settings().rerank_enabled,
             "metric_definition": {
                 "recall_at_5": "命中的相关 child 数 / 该题全部相关 child 数",
                 "hit_rate_at_5": "前 5 条是否至少命中一个相关 child",

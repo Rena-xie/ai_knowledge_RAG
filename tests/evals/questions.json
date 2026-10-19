@@ -964,10 +964,10 @@
     {
       "id": "q71",
       "category": "跨章节",
-      "question": "LangChain Agent 的短期记忆和长期记忆分别存在哪里、作用范围有什么不同？",
+      "question": "LangGraph 的子图在多次调用之间如何处理内部状态？有状态子图的 per-invocation 和 per-thread 两种模式有什么区别？",
       "relevant_child_ids": [
-        3084,
-        3141
+        3428,
+        3430
       ]
     },
     {
