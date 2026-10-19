@@ -166,7 +166,7 @@ class RetrievalService:
                 .join(KnowledgeSource, ChildChunk.source_id == KnowledgeSource.id)
                 .where(
                     ChildChunk.id.in_(child_ids),
-                    KnowledgeSource.status != SourceStatus.DELETING.value,
+                    KnowledgeSource.status == SourceStatus.COMPLETED.value,
                 )
             ).all()
             return {child.id: (child, parent, source) for child, parent, source in rows}

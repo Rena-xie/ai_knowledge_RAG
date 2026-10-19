@@ -32,7 +32,8 @@ class QuestionResult:
     question_id: str
     category: str
     retrieved: tuple[int, ...]
-    recall_hit: bool | None
+    recall_at_5: float | None
+    hit_at_5: bool | None
     answer_type: str
     citations_validated: bool
     citation_count: int
@@ -49,6 +50,7 @@ class EvalReport:
 
     total: int
     recall_at_5: float | None
+    hit_rate_at_5: float | None
     citation_validity: float | None
     insufficient_accuracy: float | None
     precision_at_5: float | None
@@ -61,6 +63,7 @@ class EvalReport:
         return {
             "total": self.total,
             "recall_at_5": self.recall_at_5,
+            "hit_rate_at_5": self.hit_rate_at_5,
             "citation_validity": self.citation_validity,
             "insufficient_accuracy": self.insufficient_accuracy,
             "precision_at_5": self.precision_at_5,
@@ -72,7 +75,8 @@ class EvalReport:
                     "question_id": result.question_id,
                     "category": result.category,
                     "retrieved": list(result.retrieved),
-                    "recall_hit": result.recall_hit,
+                    "recall_at_5": result.recall_at_5,
+                    "hit_at_5": result.hit_at_5,
                     "answer_type": result.answer_type,
                     "citations_validated": result.citations_validated,
                     "citation_count": result.citation_count,
@@ -107,16 +111,19 @@ class EvaluationRunner:
             answer = self._qa_service.answer(item.question, retrieval=retrieval)
             retrieved = tuple(retrieval.fused_ids[:10])
             top_k = retrieved[:RECALL_K]
-            recall_hit: bool | None = None
+            recall: float | None = None
+            hit: bool | None = None
             precision: float | None = None
             mrr: float | None = None
             ndcg: float | None = None
             if item.relevant_child_ids:
-                recall_hit = bool(set(top_k) & set(item.relevant_child_ids))
-                if top_k:
-                    precision = round(
-                        len(set(top_k) & set(item.relevant_child_ids)) / len(top_k), 4
-                    )
+                relevant = set(item.relevant_child_ids)
+                hits = len(set(top_k) & relevant)
+                # 标准 Recall@5：命中的相关块数 / 该题全部相关块数。
+                recall = round(hits / len(relevant), 4)
+                hit = hits > 0
+                # 标准 Precision@5 的分母固定为 5，即使返回结果不足 5 条。
+                precision = round(hits / RECALL_K, 4)
                 mrr = round(_mrr(item.relevant_child_ids, retrieved), 4)
                 ndcg = round(_ndcg(item.relevant_child_ids, retrieved), 4)
             results.append(
@@ -124,7 +131,8 @@ class EvaluationRunner:
                     question_id=item.id,
                     category=item.category,
                     retrieved=retrieved,
-                    recall_hit=recall_hit,
+                    recall_at_5=recall,
+                    hit_at_5=hit,
                     answer_type=answer.answer_type,
                     citations_validated=answer.citations_validated,
                     citation_count=len(answer.citations),
@@ -152,7 +160,16 @@ class EvaluationRunner:
             result for result, item in zip(results, questions, strict=True)
             if not item.relevant_child_ids
         ]
-        recall_hits = [result for result in labeled if result.recall_hit]
+        recall_scores = [
+            result.recall_at_5
+            for result in labeled
+            if result.recall_at_5 is not None
+        ]
+        hit_scores = [
+            1.0 if result.hit_at_5 else 0.0
+            for result in labeled
+            if result.hit_at_5 is not None
+        ]
         validated = [result for result in answered if result.citations_validated]
         insufficient = [
             result
@@ -176,7 +193,8 @@ class EvaluationRunner:
         ]
         return EvalReport(
             total=len(results),
-            recall_at_5=_ratio(len(recall_hits), len(labeled)),
+            recall_at_5=_average(recall_scores),
+            hit_rate_at_5=_average(hit_scores),
             citation_validity=_ratio(len(validated), len(answered)),
             insufficient_accuracy=_ratio(len(insufficient), len(unlabeled)),
             precision_at_5=(
@@ -240,11 +258,13 @@ def _category_metrics(
             for question, result in paired
             if not question.relevant_child_ids
         ]
-        hits = sum(1 for result in labeled if result.recall_hit)
+        recalls = [result.recall_at_5 for result in labeled]
+        hits = sum(1 for result in labeled if result.hit_at_5)
         payload[category] = {
             "total": len(paired),
             "labeled": len(labeled),
-            "recall_at_5": _ratio(hits, len(labeled)),
+            "recall_at_5": _average(recalls),
+            "hit_rate_at_5": _ratio(hits, len(labeled)),
             "mrr_at_10": _average([result.mrr_at_10 for result in labeled]),
             "ndcg_at_10": _average([result.ndcg_at_10 for result in labeled]),
             "insufficient_accuracy": _ratio(

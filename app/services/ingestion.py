@@ -107,7 +107,8 @@ class IngestionService:
         """启动时回收中断的入库记录（见《项目开发说明_v1.md》10.6 第 4 条）。
 
         单进程约束下启动时不存在正在执行的入库任务，遗留的 `pending` 与
-        `processing` 记录已无人处理，标记为 `failed` 后可通过重新提交重试。
+        `processing` 记录已无人处理。先清理可能已提交的 chunks 与派生索引，
+        再标记为 `failed`，避免半成品在重启后继续参与检索。
         """
 
         with self._session_factory() as session:
@@ -124,6 +125,7 @@ class IngestionService:
                 ).all()
             )
         for source_id in source_ids:
+            self._compensate(source_id)
             self._source_service.mark_status(
                 source_id,
                 SourceStatus.FAILED,

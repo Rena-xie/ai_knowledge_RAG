@@ -235,6 +235,11 @@ def run_eval(
             "created_at": utc_now_iso(),
             "questions_file": str(args.questions),
             "corpus": "current-db" if args.use_current_db else str(args.corpus),
+            "metric_definition": {
+                "recall_at_5": "命中的相关 child 数 / 该题全部相关 child 数",
+                "hit_rate_at_5": "前 5 条是否至少命中一个相关 child",
+                "precision_at_5": "命中的相关 child 数 / 5",
+            },
             **report.as_dict(),
         }
         output = args.output or DEFAULT_OUTPUT_DIR / "latest.json"
@@ -247,6 +252,10 @@ def run_eval(
             for key in (
                 "total",
                 "recall_at_5",
+                "hit_rate_at_5",
+                "precision_at_5",
+                "mrr_at_10",
+                "ndcg_at_10",
                 "citation_validity",
                 "insufficient_accuracy",
             )

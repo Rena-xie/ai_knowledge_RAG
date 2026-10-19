@@ -247,6 +247,22 @@ def test_deleting_source_is_excluded(env: dict[str, object]) -> None:
     assert result.dense_ids
 
 
+@pytest.mark.parametrize("status", ["failed", "pending", "processing"])
+def test_non_completed_source_is_excluded(
+    env: dict[str, object], status: str
+) -> None:
+    """半成品来源即使索引中仍有残留，也不能进入问答证据。"""
+
+    seed_source(env, status=status)
+    service = build_service(env)
+
+    result = service.search("BM25")
+
+    assert result.evidences == ()
+    assert result.dense_ids
+    assert result.bm25_ids
+
+
 def test_empty_retrieval_returns_no_evidence(env: dict[str, object]) -> None:
     service = build_service(env)
 

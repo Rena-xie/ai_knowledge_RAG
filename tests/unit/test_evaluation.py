@@ -83,13 +83,15 @@ def test_reports_metrics() -> None:
 
     assert report.total == 3
     assert report.recall_at_5 == pytest.approx(0.5)
+    assert report.hit_rate_at_5 == pytest.approx(0.5)
     assert report.citation_validity == pytest.approx(0.5)
     assert report.insufficient_accuracy == pytest.approx(1.0)
-    assert [result.recall_hit for result in report.results] == [True, False, None]
-    assert report.precision_at_5 == pytest.approx(0.1666)
+    assert [result.recall_at_5 for result in report.results] == [1.0, 0.0, None]
+    assert [result.hit_at_5 for result in report.results] == [True, False, None]
+    assert report.precision_at_5 == pytest.approx(0.1)
     assert report.mrr_at_10 == pytest.approx(0.1666)
     assert report.ndcg_at_10 == pytest.approx(0.25)
-    assert report.results[0].precision_at_5 == pytest.approx(0.3333)
+    assert report.results[0].precision_at_5 == pytest.approx(0.2)
     assert report.results[0].mrr_at_10 == pytest.approx(0.3333)
     assert report.results[0].ndcg_at_10 == pytest.approx(0.5)
     assert report.results[1].precision_at_5 == pytest.approx(0.0)
@@ -97,6 +99,25 @@ def test_reports_metrics() -> None:
     assert report.results[1].ndcg_at_10 == pytest.approx(0.0)
     assert report.results[2].precision_at_5 is None
     assert report.category_metrics["专有名词"]["recall_at_5"] == 1.0
+    assert report.category_metrics["专有名词"]["hit_rate_at_5"] == 1.0
+
+
+def test_recall_at_5_uses_all_relevant_chunks() -> None:
+    """多相关块只命中一个时，HitRate 为 1，但标准 Recall 应小于 1。"""
+
+    retrieval = FakeRetrieval({"多答案题": (7, 8, 9)})
+    qa = FakeQA({"多答案题": answer("答案 [S1:C2]")})
+    runner = EvaluationRunner(retrieval_service=retrieval, qa_service=qa)
+
+    report = runner.run(
+        [EvalQuestion("q1", "跨章节", "多答案题", (8, 10))]
+    )
+
+    assert report.recall_at_5 == pytest.approx(0.5)
+    assert report.hit_rate_at_5 == pytest.approx(1.0)
+    assert report.results[0].recall_at_5 == pytest.approx(0.5)
+    assert report.results[0].hit_at_5 is True
+    assert report.results[0].precision_at_5 == pytest.approx(0.2)
 
 
 def test_report_serializes_to_dict() -> None:
@@ -108,8 +129,11 @@ def test_report_serializes_to_dict() -> None:
 
     assert payload["total"] == 1
     assert payload["recall_at_5"] == 1.0
+    assert payload["hit_rate_at_5"] == 1.0
     assert payload["results"][0]["question_id"] == "q1"
-    assert payload["precision_at_5"] == pytest.approx(0.3333)
+    assert payload["results"][0]["recall_at_5"] == 1.0
+    assert payload["results"][0]["hit_at_5"] is True
+    assert payload["precision_at_5"] == pytest.approx(0.2)
     assert payload["mrr_at_10"] == 1.0
     assert payload["ndcg_at_10"] == 1.0
 
@@ -118,6 +142,7 @@ def test_metrics_are_none_without_denominator() -> None:
     report = build_runner().run([EvalQuestion("q1", "无答案", "无答案题")])
 
     assert report.recall_at_5 is None
+    assert report.hit_rate_at_5 is None
     assert report.citation_validity is None
     assert report.precision_at_5 is None
     assert report.insufficient_accuracy == 1.0

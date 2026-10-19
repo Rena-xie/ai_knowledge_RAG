@@ -15,6 +15,9 @@ INSUFFICIENT_EVIDENCE_TEXT = "知识库缺少相关证据。"
 ANSWER_TYPE_ANSWERED = "answered"
 ANSWER_TYPE_INSUFFICIENT = "insufficient_evidence"
 CITATION_LIKE_PATTERN = re.compile(r"\[S\d+:C\d+\]")
+EVIDENCE_BOUNDARY_PATTERN = re.compile(
+    r"<\s*/?\s*evidence\s*>", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -44,15 +47,19 @@ def format_evidence(evidence: Evidence) -> str:
     """把证据渲染为带引用标识的上下文段落。
 
     正文中形如 `[S1:C2]` 的字样会被中和，避免网页内容伪造可校验的引用标识
-    （见《项目开发说明_v1.md》7.4 第 1 点）。
+    （见《项目开发说明_v1.md》7.4 第 1 点）。标题、URL、标题路径和正文中的
+    `<evidence>` 边界也会被中和，避免不可信网页内容提前闭合证据块。
     """
 
-    title = evidence.title or "未命名"
+    title = _sanitize_evidence_field(evidence.title or "未命名")
+    url = _sanitize_evidence_field(evidence.url)
+    heading_path = _sanitize_evidence_field(evidence.heading_path)
+    body = _sanitize_evidence_field(evidence.text)
     header = (
         f"[S{evidence.source_id}:C{evidence.child_id}] "
-        f"{title} | {evidence.url} | {evidence.heading_path}"
+        f"{title} | {url} | {heading_path}"
     )
-    return f"{header}\n{_neutralize_citations(evidence.text)}"
+    return f"{header}\n{body}"
 
 
 def _neutralize_citations(text: str) -> str:
@@ -61,6 +68,18 @@ def _neutralize_citations(text: str) -> str:
     return CITATION_LIKE_PATTERN.sub(
         lambda match: f"（{match.group(0)[1:-1]}）", text
     )
+
+
+def _neutralize_evidence_boundaries(text: str) -> str:
+    """把内容中的 `<evidence>` / `</evidence>` 改写成普通文本。"""
+
+    return EVIDENCE_BOUNDARY_PATTERN.sub(
+        lambda match: f"（{match.group(0)[1:-1]}）", text
+    )
+
+
+def _sanitize_evidence_field(text: str) -> str:
+    return _neutralize_citations(_neutralize_evidence_boundaries(text))
 
 
 class QAService:
@@ -179,6 +198,7 @@ class QAService:
         template: str, question: str, evidences: Sequence[Evidence]
     ) -> str:
         evidence_text = "\n\n".join(format_evidence(item) for item in evidences)
+        safe_question = _neutralize_evidence_boundaries(question)
         return template.replace("{evidence}", evidence_text).replace(
-            "{question}", question
+            "{question}", safe_question
         )

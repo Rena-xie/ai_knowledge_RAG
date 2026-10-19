@@ -314,6 +314,40 @@ def test_recover_interrupted_sources_marks_them_failed(
     assert retried.status == "completed"
 
 
+def test_recover_interrupted_cleans_partial_chunks_and_indexes(
+    env: dict[str, object],
+) -> None:
+    """模拟 chunks 已提交后崩溃：重启恢复必须清掉半成品数据。"""
+
+    service = build_service(env)
+    completed = service.ingest("https://example.com/a")
+    assert completed.child_count > 0
+
+    with env["session_factory"]() as session:
+        source = session.get(KnowledgeSource, completed.source_id)
+        assert source is not None
+        source.status = "processing"
+        session.commit()
+
+    recovered = build_service(env).recover_interrupted()
+
+    assert recovered == (completed.source_id,)
+    assert count_rows(env, ChildChunk) == 0
+    assert count_rows(env, ParentChunk) == 0
+    assert env["vector"].count() == 0
+    assert env["fts"].all_ids() == []
+    source = env["source_service"].get(completed.source_id)
+    assert source.status == "failed"
+    assert source.error_code == ErrorCode.INGEST_INTERRUPTED.value
+
+    retried = build_service(env).ingest("https://example.com/a")
+    assert retried.triggered is True
+    assert retried.status == "completed"
+    assert count_rows(env, ChildChunk) == retried.child_count
+    assert env["vector"].count() == retried.child_count
+    assert env["fts"].all_ids()
+
+
 def test_ingest_passes_remaining_budget_to_embedder(
     env: dict[str, object],
 ) -> None:
