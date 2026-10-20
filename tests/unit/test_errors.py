@@ -21,4 +21,5 @@ def test_mapping_matches_design_doc() -> None:
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.PARSE_EMPTY_CONTENT] == 422
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.EMBEDDING_FAILED] == 502
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.LLM_FAILED] == 502
+    assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.RETRIEVAL_UNAVAILABLE] == 503
     assert HTTP_STATUS_BY_ERROR_CODE[ErrorCode.DB_ERROR] == 500

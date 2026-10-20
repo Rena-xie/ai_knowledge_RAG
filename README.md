@@ -399,6 +399,8 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 # 健康检查
 curl.exe http://127.0.0.1:8000/health/live
 curl.exe http://127.0.0.1:8000/health/ready
+# ready 会实际连接 SQLite、校验 FTS5 并调用 Chroma count()；
+# 任一失败返回 503 和对应检查项，异常详情只写日志。
 
 # 收录一个公开网页（同步完成，单次预算 60 秒）
 curl.exe -X POST http://127.0.0.1:8000/api/v1/sources `

@@ -22,15 +22,35 @@ def test_ready_reports_storage_checks(client: TestClient) -> None:
     }
 
 
-def test_ready_returns_503_when_selfcheck_fails(
+def test_ready_returns_503_without_leaking_exception(
     client: TestClient, monkeypatch
 ) -> None:
-    def fail(_settings: object) -> None:
-        raise SelfCheckError("存储不可用")
+    def fail(_db_path: object) -> None:
+        raise SelfCheckError("目录不可写: /secret/path")
 
-    monkeypatch.setattr("app.api.health.run_startup_checks", fail)
+    monkeypatch.setattr("app.api.health.check_fts5_available", fail)
 
     response = client.get("/health/ready")
 
     assert response.status_code == 503
-    assert response.json() == {"status": "error", "detail": "存储不可用"}
+    assert response.json() == {
+        "status": "error",
+        "checks": {"sqlite": "ok", "fts5": "error", "chroma": "ok"},
+    }
+    assert "secret" not in response.text
+
+
+def test_ready_reports_unavailable_chroma(
+    client: TestClient, monkeypatch
+) -> None:
+    def boom() -> int:
+        raise RuntimeError("collection missing")
+
+    container = client.app.state.container
+    monkeypatch.setattr(container.vector_index, "count", boom)
+
+    response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json()["checks"]["chroma"] == "error"
+    assert "collection missing" not in response.text

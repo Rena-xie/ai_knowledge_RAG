@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.errors import AppError, ErrorCode
 from app.core.settings import Settings
 from app.domain.literal import extract_literals
 from app.domain.rrf import FusedHit, rrf_fuse
@@ -49,6 +50,7 @@ class RetrievalResult:
     max_similarity: float = 0.0
     rerank_applied: bool = False
     rerank_model: str | None = None
+    degraded_routes: tuple[str, ...] = ()
 
 
 def _promote_literal_matches(
@@ -115,17 +117,51 @@ class RetrievalService:
             )
 
     def search(self, question: str) -> RetrievalResult:
-        embedding = self._embedder.embed([question])[0]
-        dense_hits = self._vector_index.query(
-            embedding, top_k=self._settings.dense_top_k
-        )
-        dense_ids = tuple(hit.child_id for hit in dense_hits)
-        max_similarity = max(
-            (hit.similarity for hit in dense_hits), default=0.0
-        )
-        bm25_ids = tuple(
-            self._fts_index.search(question, top_k=self._settings.bm25_top_k)
-        )
+        """双路召回任一失败时降级为单路，两路都失败才报错。
+
+        Dense 不可用时无法判断相关性门槛，此时直接返回 BM25 结果——
+        宁可多给证据，也不要在外部 Embedding 服务抖动时整体不可用。
+        """
+
+        dense_ids: tuple[int, ...] = ()
+        max_similarity = 0.0
+        dense_available = True
+        degraded_routes: list[str] = []
+        try:
+            embedding = self._embedder.embed([question])[0]
+            dense_hits = self._vector_index.query(
+                embedding, top_k=self._settings.dense_top_k
+            )
+            dense_ids = tuple(hit.child_id for hit in dense_hits)
+            max_similarity = max(
+                (hit.similarity for hit in dense_hits), default=0.0
+            )
+        except Exception:
+            dense_available = False
+            degraded_routes.append("dense")
+            logger.warning(
+                "Dense 检索失败，降级为 BM25 单路",
+                exc_info=True,
+                extra={"stage": "retrieval"},
+            )
+        try:
+            bm25_ids = tuple(
+                self._fts_index.search(
+                    question, top_k=self._settings.bm25_top_k
+                )
+            )
+        except Exception:
+            degraded_routes.append("bm25")
+            logger.warning(
+                "BM25 检索失败，降级为 Dense 单路",
+                exc_info=True,
+                extra={"stage": "retrieval"},
+            )
+            if not dense_available:
+                raise AppError(
+                    ErrorCode.RETRIEVAL_UNAVAILABLE, "检索服务暂不可用"
+                ) from None
+            bm25_ids = ()
         rerank_enabled = self._rerank_client is not None
         candidate_k = (
             max(self._settings.final_top_k, self._settings.rerank_top_n)
@@ -139,7 +175,10 @@ class RetrievalService:
             top_k=candidate_k,
             head_reserve=self._settings.route_head_reserve,
         )
-        if not fused or max_similarity < self._settings.min_dense_similarity:
+        gate_failed = dense_available and (
+            max_similarity < self._settings.min_dense_similarity
+        )
+        if not fused or gate_failed:
             # 相关性门槛：库内没有足够相关的证据时按证据不足处理（见 7.3 第 4 点）
             return RetrievalResult(
                 (),
@@ -147,6 +186,7 @@ class RetrievalService:
                 bm25_ids,
                 tuple(hit.child_id for hit in fused),
                 max_similarity,
+                degraded_routes=tuple(degraded_routes),
             )
         rows = self._load_rows([hit.child_id for hit in fused])
         candidates = [hit for hit in fused if hit.child_id in rows]
@@ -195,6 +235,7 @@ class RetrievalService:
             max_similarity=max_similarity,
             rerank_applied=rerank_applied,
             rerank_model=rerank_model,
+            degraded_routes=tuple(degraded_routes),
         )
 
     def _load_rows(self, child_ids: Sequence[int]) -> dict[int, Row]:

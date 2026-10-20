@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import Engine
 
+from app.core.errors import AppError, ErrorCode
 from app.core.settings import Settings
 from app.infra.db import (
     ChildChunk,
@@ -29,6 +30,16 @@ class FixedEmbedder:
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         return [list(self._vector) for _ in texts]
+
+
+class FailingEmbedder:
+    def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        raise RuntimeError("embedding unavailable")
+
+
+class FailingFts:
+    def search(self, _question: str, *, top_k: int) -> list[int]:
+        raise RuntimeError("fts unavailable")
 
 
 class FakeRerank:
@@ -136,12 +147,14 @@ def build_service(
     env: dict[str, object],
     *,
     rerank_client: FakeRerank | None = None,
+    embedder: object | None = None,
+    fts: object | None = None,
     **overrides,
 ) -> RetrievalService:
     return RetrievalService(
         session_factory=env["session_factory"],
-        embedder=FixedEmbedder([1.0, 0.0, 0.0]),
-        fts_index=env["fts"],
+        embedder=embedder or FixedEmbedder([1.0, 0.0, 0.0]),
+        fts_index=fts or env["fts"],
         vector_index=env["vector"],
         settings=build_settings(**overrides),
         rerank_client=rerank_client,
@@ -241,6 +254,40 @@ def test_missing_literal_keeps_rerank_order(env: dict[str, object]) -> None:
     result = service.search("print('absent, literal') 在哪？")
 
     assert result.fused_ids[0] == child_ids[2]
+
+
+def test_dense_failure_falls_back_to_bm25(env: dict[str, object]) -> None:
+    _, child_ids = seed_source(env)
+    service = build_service(env, embedder=FailingEmbedder())
+
+    result = service.search("BM25")
+
+    assert result.degraded_routes == ("dense",)
+    assert result.evidences
+    assert result.evidences[0].child_id == child_ids[0]
+
+
+def test_bm25_failure_falls_back_to_dense(env: dict[str, object]) -> None:
+    _, child_ids = seed_source(env)
+    service = build_service(env, fts=FailingFts())
+
+    result = service.search("BM25")
+
+    assert result.degraded_routes == ("bm25",)
+    assert result.evidences
+    assert result.evidences[0].child_id == child_ids[0]
+
+
+def test_both_routes_failing_raises(env: dict[str, object]) -> None:
+    seed_source(env)
+    service = build_service(
+        env, embedder=FailingEmbedder(), fts=FailingFts()
+    )
+
+    with pytest.raises(AppError) as excinfo:
+        service.search("BM25")
+
+    assert excinfo.value.code is ErrorCode.RETRIEVAL_UNAVAILABLE
 
 
 def test_rerank_failure_falls_back_to_rrf(env: dict[str, object]) -> None:
