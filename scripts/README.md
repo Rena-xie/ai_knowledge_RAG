@@ -1,6 +1,6 @@
 # 运维脚本
 
-脚本清单（见《项目开发说明_v1.md》5.4、5.6）：
+脚本清单：
 
 - `reindex.py`：从 SQLite 权威数据重建 FTS5 与 Chroma 派生索引。
 
@@ -34,6 +34,6 @@
 
   ```powershell
   uv run python scripts/eval_grouped_metrics.py `
-    --results tests/evals/results/2026-10-19-v2-108q-final2-standard.json `
-    --output tests/evals/results/2026-10-19-v2-108q-final2-grouped.json
+    --results tests/evals/results/2026-10-20-v2-128q-literal.json `
+    --output tests/evals/results/2026-10-20-v2-128q-literal-grouped.json
   ```

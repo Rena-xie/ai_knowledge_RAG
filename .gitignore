@@ -28,3 +28,12 @@ Thumbs.db
 # 本地 Agent 配置（不入库）
 AGENTS.md
 .claude/
+
+# 内部开发说明与质量评价结果（保留本地，不公开）
+项目开发说明_*.md
+项目质量评价结果_*.md
+
+# 历史评测结果（只公开当前最终结果）
+tests/evals/results/*.json
+!tests/evals/results/2026-10-20-v2-128q-literal.json
+!tests/evals/results/2026-10-20-v2-128q-literal-grouped.json

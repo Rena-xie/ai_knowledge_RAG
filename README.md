@@ -221,8 +221,8 @@ EMBEDDING_API_KEY=你的 SiliconFlow Key
 LLM_API_KEY=你的 DeepSeek Key
 ```
 
-其余参数均有默认值，含义见 [《项目开发说明_v1.md》10.2](项目开发说明_v1.md)。`.env` 已被
-`.gitignore` 排除，不会进入版本库。
+其余参数均有默认值，含义见 `.env.example` 中的注释。`.env` 已被 `.gitignore` 排除，
+不会进入版本库。
 
 > `.env.example` 默认开启 rerank；代码安全默认关闭，未配置时不会访问 rerank API。
 > 未单独配置 `RERANK_API_KEY` 时会复用 Embedding Key；关闭后检索回退到 RRF 排序。
@@ -331,8 +331,8 @@ uv run mypy
 
 ## 文档与许可
 
-- 架构、接口契约、状态机与决策记录：[项目开发说明_v1.md](项目开发说明_v1.md)
-- V2 开发计划与验收标准：[项目开发说明_v2.md](项目开发说明_v2.md)
+- 项目质量评价表：[空表](开发项目质量评价表_空表.md)、[V1](开发项目质量评价表_v1.md)、
+  [V2](开发项目质量评价表_v2.md)
 - 运维脚本说明：[scripts/README.md](scripts/README.md)
 - 评测集说明：[tests/evals/README.md](tests/evals/README.md)
 

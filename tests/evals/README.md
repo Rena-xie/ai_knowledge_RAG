@@ -1,7 +1,7 @@
 # 检索评测集
 
 放置评测语料清单、问题集与标注结果（当前 128 题 / 84 个独立问题），以及运行评测的
-脚本（见《项目开发说明_v2.md》11.4）。
+脚本。
 
 - `corpus.json`：评测语料清单（真实公开文档站点的 URL）。入库顺序即清单顺序，
   `child_id` 依赖该顺序，**不要重排**；站点内容变化后需重新标注题库。
@@ -12,16 +12,12 @@
   MRR@10、nDCG@10、引用有效率、无答案识别率与每题最高 Dense 相似度
   （用于校准 `MIN_DENSE_SIMILARITY`）。
 
-主要结果：
+公开结果：
 
-- `2026-10-19-v2-108q-final2-standard.json`：108 题、rerank 开，按标准 Recall@5 计算。
-- `2026-10-19-v2-108q-final2.json`：同一轮的原始 Any-Hit 结果，便于审计口径变化。
-- `2026-10-20-v2-108q-no-rerank.json`：同语料同题集、关闭 rerank 的对照基线。
-- `2026-10-20-v2-128q-rerank.json` / `2026-10-20-v2-128q-no-rerank.json`：
-  扩展题集（128 题 / 84 个独立问题）的 rerank 开/关基线（字面量分流之前）。
-- `2026-10-20-v2-128q-literal.json` / `2026-10-20-v2-128q-literal-no-rerank.json`：
-  加入字面量查询分流后的 rerank 开/关结果，当前实现以这两份为准。
-- `*-grouped.json`：按独立问题重新聚合的结果，由 `scripts/eval_grouped_metrics.py` 生成。
+- `2026-10-20-v2-128q-literal.json`：当前实现的 128 题 rerank 开结果。
+- `2026-10-20-v2-128q-literal-grouped.json`：按 84 个独立问题重新聚合的结果。
+
+历史基线和消融结果保留在本地，不纳入公开仓库；需要时可以重新运行评测生成。
 
 指标口径：
 
@@ -55,6 +51,6 @@ uv run python scripts/run_eval.py --dump-children tests/evals/children.json
 uv run python scripts/run_eval.py --use-current-db      # 改用自己的知识库
 
 uv run python scripts/eval_grouped_metrics.py `
-  --results tests/evals/results/2026-10-19-v2-108q-final2-standard.json `
-  --output tests/evals/results/2026-10-19-v2-108q-final2-grouped.json
+  --results tests/evals/results/2026-10-20-v2-128q-literal.json `
+  --output tests/evals/results/2026-10-20-v2-128q-literal-grouped.json
 ```
