@@ -198,6 +198,51 @@ def test_rerank_reorders_candidates_and_uses_its_score(
     assert result.evidences[0].score == pytest.approx(1.0)
 
 
+def test_literal_match_is_promoted_after_rerank(env: dict[str, object]) -> None:
+    """正文逐字包含代码片段的切片应排在 rerank 结果之前。"""
+
+    _, child_ids = seed_source(
+        env,
+        child_texts=(">>> print('hello, world')", "向量检索", "混合检索"),
+        embeddings=(
+            [1.0, 0.0, 0.0],
+            [0.9, 0.1, 0.0],
+            [0.8, 0.2, 0.0],
+        ),
+    )
+    rerank = FakeRerank(order=[1, 2, 0])
+    service = build_service(
+        env, rerank_client=rerank, final_top_k=2, rerank_top_n=5
+    )
+
+    result = service.search("print('hello, world') 出现在哪一章？")
+
+    assert result.rerank_applied is True
+    assert result.fused_ids[0] == child_ids[0]
+
+
+def test_missing_literal_keeps_rerank_order(env: dict[str, object]) -> None:
+    """候选都不包含该片段时，保持 rerank 原顺序。"""
+
+    _, child_ids = seed_source(
+        env,
+        child_texts=("BM25 稀疏检索", "向量检索", "混合检索"),
+        embeddings=(
+            [1.0, 0.0, 0.0],
+            [0.9, 0.1, 0.0],
+            [0.8, 0.2, 0.0],
+        ),
+    )
+    rerank = FakeRerank(order=[2, 1, 0])
+    service = build_service(
+        env, rerank_client=rerank, final_top_k=2, rerank_top_n=5
+    )
+
+    result = service.search("print('absent, literal') 在哪？")
+
+    assert result.fused_ids[0] == child_ids[2]
+
+
 def test_rerank_failure_falls_back_to_rrf(env: dict[str, object]) -> None:
     seed_source(env)
     service = build_service(

@@ -18,7 +18,9 @@
 - `2026-10-19-v2-108q-final2.json`：同一轮的原始 Any-Hit 结果，便于审计口径变化。
 - `2026-10-20-v2-108q-no-rerank.json`：同语料同题集、关闭 rerank 的对照基线。
 - `2026-10-20-v2-128q-rerank.json` / `2026-10-20-v2-128q-no-rerank.json`：
-  扩展题集（128 题 / 84 个独立问题）的 rerank 开/关基线。
+  扩展题集（128 题 / 84 个独立问题）的 rerank 开/关基线（字面量分流之前）。
+- `2026-10-20-v2-128q-literal.json` / `2026-10-20-v2-128q-literal-no-rerank.json`：
+  加入字面量查询分流后的 rerank 开/关结果，当前实现以这两份为准。
 - `*-grouped.json`：按独立问题重新聚合的结果，由 `scripts/eval_grouped_metrics.py` 生成。
 
 指标口径：

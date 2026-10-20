@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.settings import Settings
+from app.domain.literal import extract_literals
 from app.domain.rrf import FusedHit, rrf_fuse
 from app.domain.state import SourceStatus
 from app.infra.db import ChildChunk, KnowledgeSource, ParentChunk
@@ -48,6 +49,41 @@ class RetrievalResult:
     max_similarity: float = 0.0
     rerank_applied: bool = False
     rerank_model: str | None = None
+
+
+def _promote_literal_matches(
+    candidates: Sequence[FusedHit],
+    rows: dict[int, Row],
+    literals: Sequence[str],
+    bm25_ids: Sequence[int],
+) -> list[FusedHit]:
+    """把包含逐字代码片段的候选提到最前，其余候选保持原有顺序。
+
+    rerank 会按语义相关性重排，容易把"正文里逐字出现该片段"的切片压下去；
+    这类查询的正确答案依赖字面匹配。命中片段通常不止一条，因此命中组内部
+    再按 BM25 名次排序——词法检索对逐字查询更可靠。
+    """
+
+    if not literals:
+        return list(candidates)
+    needles = tuple(literal.casefold() for literal in literals)
+    order = {hit.child_id: index for index, hit in enumerate(candidates)}
+    promoted = [
+        hit
+        for hit in candidates
+        if any(needle in rows[hit.child_id][0].text.casefold() for needle in needles)
+    ]
+    if not promoted:
+        return list(candidates)
+    bm25_rank = {child_id: rank for rank, child_id in enumerate(bm25_ids)}
+    promoted.sort(
+        key=lambda hit: (
+            bm25_rank.get(hit.child_id, len(bm25_ids)),
+            order[hit.child_id],
+        )
+    )
+    promoted_ids = {hit.child_id for hit in promoted}
+    return promoted + [hit for hit in candidates if hit.child_id not in promoted_ids]
 
 
 class RetrievalService:
@@ -144,6 +180,9 @@ class RetrievalService:
                 candidates = ordered
                 rerank_applied = True
                 rerank_model = self._settings.rerank_model
+        candidates = _promote_literal_matches(
+            candidates, rows, extract_literals(question), bm25_ids
+        )
         final_hits = candidates[: self._settings.final_top_k]
         evidences = self._build_evidence(
             final_hits, rows, scores=rerank_scores
