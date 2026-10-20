@@ -1,11 +1,6 @@
-# AI Knowledge Base
+# ai-knowledge-RAG
 
 面向个人 AI 学习的网页知识采集、混合检索与有据问答系统。
-
-[![CI](https://github.com/Rena-xie/ai_knowledge_RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/Rena-xie/ai_knowledge_RAG/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](pyproject.toml)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 项目简介
 
