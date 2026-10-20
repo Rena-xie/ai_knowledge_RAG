@@ -1,1 +1,1 @@
-"""AI Knowledge Base 应用包。"""
+"""ai-knowledge-rag 应用包。"""

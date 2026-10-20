@@ -1,4 +1,4 @@
-# ai-knowledge-RAG
+# ai-knowledge-rag
 
 面向个人 AI 学习的网页知识采集、混合检索与有据问答系统。
 

@@ -76,7 +76,7 @@ def fetch_github_markdown(
         params={"ref": branch},
         headers={
             "Accept": "application/vnd.github+json",
-            "User-Agent": "ai-knowledge-base-eval",
+            "User-Agent": "ai-knowledge-rag-eval",
         },
     )
     response.raise_for_status()

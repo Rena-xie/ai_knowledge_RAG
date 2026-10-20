@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "ai-knowledge-base"
+name = "ai-knowledge-rag"
 version = "2.0.0"
 source = { virtual = "." }
 dependencies = [

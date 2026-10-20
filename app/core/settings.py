@@ -9,7 +9,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_FETCH_USER_AGENT = (
-    "ai-knowledge-base/v1 (+https://github.com/Rena-xie/ai_knowledge_RAG)"
+    "ai-knowledge-rag/2.0.0 (+https://github.com/Rena-xie/ai_knowledge_RAG)"
 )
 DEFAULT_ROBOTS_CACHE_TTL_S = 300.0
 DEFAULT_LOG_FILE = "data/logs/app.log"

@@ -2,7 +2,7 @@
 
 from app.infra.robots import RobotsPolicy
 
-UA = "ai-knowledge-base/v1 (+https://github.com/Rena-xie/ai_knowledge_RAG)"
+UA = "ai-knowledge-rag/2.0.0 (+https://github.com/Rena-xie/ai_knowledge_RAG)"
 
 
 def test_disallow_matches_path_prefix() -> None:
@@ -42,7 +42,7 @@ def test_wildcard_and_end_anchor() -> None:
 def test_specific_user_agent_group_wins_over_wildcard() -> None:
     policy = RobotsPolicy.parse(
         "User-agent: *\nDisallow: /\n\n"
-        "User-agent: ai-knowledge-base\nDisallow: /admin\n",
+        "User-agent: ai-knowledge-rag\nDisallow: /admin\n",
         UA,
     )
 

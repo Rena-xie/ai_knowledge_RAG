@@ -36,7 +36,7 @@ def test_defaults_match_design_doc() -> None:
     assert settings.fetch_max_redirects == 5
     assert settings.polite_delay_s == 1.0
     assert settings.robots_cache_ttl_s == 300
-    assert settings.fetch_user_agent.startswith("ai-knowledge-base/")
+    assert settings.fetch_user_agent.startswith("ai-knowledge-rag/")
     assert settings.ingest_lock_timeout_s == 30
     assert settings.max_request_bytes == 1048576
     assert settings.app_host == "127.0.0.1"
