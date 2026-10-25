@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <title>双语知识库实践指南</title>
+  </head>
+  <body>
+    <header>
+      <nav>Subscribe to updates | Product | Resources | Privacy Policy</nav>
+    </header>
+    <main>
+      <article>
+        <h1>双语知识库实践指南</h1>
+        <p>
+          这个实践指南说明如何建立同时支持中文和英文的知识库。系统保存原始来源、
+          正文快照和版本信息，并在检索时返回能够追溯的证据。知识库不生成答案，
+          只把相关片段交给上层代理处理。
+        </p>
+        <p>
+          This practical guide explains how to build a knowledge base that
+          supports both Chinese and English documents. The service stores source
+          metadata, content snapshots, and version information, then returns
+          traceable evidence for downstream agents.
+        </p>
+        <h2>入库流程 / Ingestion workflow</h2>
+        <ul>
+          <li>先验证 URL，再抓取最终页面并保存重定向别名。</li>
+          <li>Validate the final URL and preserve redirect aliases.</li>
+          <li>解析正文、计算指纹，并拒绝完全重复的内容。</li>
+          <li>Extract content, compute fingerprints, and reject duplicates.</li>
+        </ul>
+        <h2>示例 / Example</h2>
+        <pre><code>async def ingest(url):
+    document = await fetch_and_extract(url)
+    return await store_document(document)</code></pre>
+        <table>
+          <thead>
+            <tr><th>字段 / Field</th><th>用途 / Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>source_id</td><td>标识来源 / identifies a source</td></tr>
+            <tr><td>language_code</td><td>记录语言 / records language</td></tr>
+          </tbody>
+        </table>
+        <p>
+          最后，在修改索引之前完成解析和切块校验。失败的刷新任务不得破坏已经
+          发布的正文与检索索引。系统应记录稳定错误码，方便代理和用户定位问题。
+        </p>
+        <p>
+          Finally, validate extraction and chunking before changing the index.
+          A failed refresh must not damage published content or retrieval data.
+          Stable error codes help the agent and the user diagnose failures.
+        </p>
+        <h2>质量检查 / Quality checks</h2>
+        <p>
+          每次更新解析器或调整清洗规则之后，都要重新运行冻结的正文质量集合。
+          检查报告需要分别给出中文、英文和双语页面的标题准确率、正文召回率、
+          噪声比例以及代码、列表和表格的保留情况。只要指标下降，就应查看具体
+          失败页面，确认是网站内容发生变化、人工标注需要更新，还是解析器出现了
+          回归。不能为了得到漂亮的数字而删除困难样本，也不能在失败时悄悄降低
+          验收门槛。真实线上页面用于单独诊断，冻结快照用于稳定回归，两种检查
+          必须保留清晰边界。
+        </p>
+      </article>
+    </main>
+    <footer>Privacy Policy | Terms of Service | Subscribe</footer>
+  </body>
+</html>

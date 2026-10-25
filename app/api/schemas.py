@@ -21,6 +21,7 @@ class SourceResponse(BaseModel):
     canonical_url: str
     title: str | None
     status: str
+    language_code: str | None
     identity_status: str
     identity_verified_at: str | None
     error_code: str | None

@@ -67,6 +67,7 @@ def test_submit_source_ingests_and_deduplicates(client: TestClient) -> None:
     assert body["status"] == "completed"
     assert body["triggered"] is True
     assert body["canonical_url"] == "https://example.com/a"
+    assert body["language_code"] == "zh"
 
     second = client.post("/api/v1/sources", json={"url": "https://example.com/a"})
 

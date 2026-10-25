@@ -80,7 +80,7 @@
 - [x] schema v4 迁移通过。
 - [x] 最终 URL 和别名可追溯。
 - [x] 新入库与刷新去重正确，历史数据保持原状。
-- [ ] 人工审查后进入内容质量阶段。
+- [x] 人工审查后进入内容质量阶段。
 
 ## Phase 2：内容质量与双语
 
@@ -89,13 +89,13 @@
 **Description:** 建立至少 30 个固定网页快照和人工标注，覆盖中文、英文、混合内容、标题、段落、列表、代码、表格和长章节。
 
 **Acceptance criteria:**
-- [ ] 黄金集不依赖实时网络，CI 可离线运行。
-- [ ] 报告标题、正文召回、噪声和关键结构块的逐页结果。
-- [ ] 当前实现基线被记录，不以暂未达标为由修改阈值。
+- [x] 黄金集不依赖实时网络，CI 可离线运行。
+- [x] 报告标题、正文召回、噪声和关键结构块的逐页结果。
+- [x] 当前实现基线被记录，不以暂未达标为由修改阈值。
 
 **Verification:**
-- [ ] `uv run pytest tests/content_quality/test_extraction_quality.py -q`
-- [ ] 人工抽查黄金集标注和至少 5 个失败样本。
+- [x] `uv run pytest tests/content_quality/test_extraction_quality.py -q`
+- [x] 人工抽查黄金集标注和至少 5 个失败样本。
 
 **Dependencies:** None；测试资产可与 Task 1–3 并行建设。
 
@@ -111,12 +111,12 @@
 **Description:** 根据正文中的 CJK、拉丁字符比例写入 `zh/en/mixed/unknown`，仅用于元数据和分语言评测，不新增模型依赖。
 
 **Acceptance criteria:**
-- [ ] 中文、英文、混合和空正文样本分类稳定。
-- [ ] 语言元数据随来源预览返回，不改变检索路径。
-- [ ] 语言判定只使用确定性规则，不产生网络调用。
+- [x] 中文、英文、混合和空正文样本分类稳定。
+- [x] 语言元数据随来源预览返回，不改变检索路径。
+- [x] 语言判定只使用确定性规则，不产生网络调用。
 
 **Verification:**
-- [ ] `uv run pytest tests/unit/test_language.py tests/integration/test_ingestion_service.py -q`
+- [x] `uv run pytest tests/unit/test_language.py tests/integration/test_ingestion_service.py -q`
 
 **Dependencies:** Task 4
 
@@ -133,14 +133,14 @@
 **Description:** 先读取 Task 4 基线，只修正已证实失败的标题、正文或结构提取，不进行无证据的解析器重写。
 
 **Acceptance criteria:**
-- [ ] 标题准确率 ≥ 95%。
-- [ ] 正文字符召回 ≥ 95%，非正文噪声 ≤ 10%。
-- [ ] 关键结构保留率 ≥ 95%，中英文各自报告结果。
-- [ ] 解析器变化不降低已有上游夹具通过率。
+- [x] 标题准确率 ≥ 95%。
+- [x] 正文字符召回 ≥ 95%，非正文噪声 ≤ 10%。
+- [x] 关键结构保留率 ≥ 95%，中英文各自报告结果。
+- [x] 解析器变化不降低已有上游夹具通过率。
 
 **Verification:**
-- [ ] `uv run pytest tests/content_quality tests/unit/test_parser.py tests/unit/test_chunking_parse.py -q`
-- [ ] 对比 Task 4 基线并记录失败样本变化。
+- [x] `uv run pytest tests/content_quality tests/unit/test_parser.py tests/unit/test_chunking_parse.py -q`
+- [x] 对比 Task 4 基线并记录失败样本变化。
 
 **Dependencies:** Task 4, Task 5
 
@@ -154,9 +154,9 @@
 
 ## Checkpoint B：内容质量
 
-- [ ] 黄金集离线可重复。
-- [ ] 中英文解析达到批准阈值。
-- [ ] 没有引入本地模型或新运行时依赖。
+- [x] 黄金集离线可重复。
+- [x] 中英文解析达到批准阈值。
+- [x] 没有引入本地模型或新运行时依赖。
 - [ ] 人工审查失败样本后进入来源预览阶段。
 
 ## Phase 3：来源预览与知识组织

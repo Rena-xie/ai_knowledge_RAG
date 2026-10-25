@@ -56,3 +56,66 @@ def test_raises_on_empty_content() -> None:
         parse_html("<html><body></body></html>")
 
     assert excinfo.value.code == ErrorCode.PARSE_EMPTY_CONTENT
+
+
+def test_removes_title_and_heading_footnote_markers() -> None:
+    html = """
+    <html>
+      <head><title>Page Title</title></head>
+      <body>
+        <main>
+          <h1>Page Title<a class="headerlink">¶</a></h1>
+          <p>Useful body content with enough text for extraction.</p>
+        </main>
+      </body>
+    </html>
+    """
+
+    document = parse_html(html)
+
+    assert document.title == "Page Title"
+    assert "¶" not in document.markdown
+
+
+def test_preserves_preformatted_code_and_indentation() -> None:
+    html = """
+    <html>
+      <body>
+        <main>
+          <h1>Code example</h1>
+          <p>Use the following code to start the service.</p>
+          <pre><code class="language-python"><span>def greet():</span>
+<span>    return "hello"</span>
+</code></pre>
+          <p>The function returns a greeting.</p>
+        </main>
+      </body>
+    </html>
+    """
+
+    document = parse_html(html)
+
+    assert "```" in document.markdown
+    assert 'def greet():\n    return "hello"' in document.markdown
+
+
+def test_strips_inline_layout_tags_outside_code() -> None:
+    html = """
+    <html>
+      <body>
+        <main>
+          <h1>Terminal output</h1>
+          <p>Run 10<sup>9</sup> iterations with <span>no errors</span>.</p>
+          <pre><code>&lt;div&gt; stays in code&lt;/div&gt;
+&lt;code&gt;sample&lt;/code&gt;</code></pre>
+        </main>
+      </body>
+    </html>
+    """
+
+    document = parse_html(html)
+
+    assert "<sup>" not in document.markdown
+    assert "<span>" not in document.markdown
+    assert "<div> stays in code</div>" in document.markdown
+    assert "<code>sample</code>" in document.markdown

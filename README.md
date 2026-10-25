@@ -27,7 +27,7 @@ Chroma 是可随时重建的派生索引；每条证据包含真实来源、Chil
 | **混合检索** | Dense + BM25 双路召回，RRF 融合 + Cross-Encoder rerank（失败回退 RRF），字面量查询按 BM25 名次提权；支持相关性门槛与单路降级 |
 | **可追溯证据** | 返回来源、Child、最终 URL、标题路径、分值与原文；Agent 可据此生成自己的回答和引用 |
 | **可运维** | 启动自检、健康检查实际探活 SQLite/FTS5/Chroma、索引全量/按来源重建、一致性校验、数据备份、滚动日志、`request_id` 全链路追踪 |
-| **工程质量** | 单元、集成、E2E、检索评测、Ruff、mypy、覆盖率门禁和 GitHub Actions CI |
+| **工程质量** | 单元、集成、E2E、中英文正文黄金集、检索评测、Ruff、mypy、覆盖率门禁和 GitHub Actions CI |
 
 ## 系统架构
 
@@ -145,12 +145,14 @@ flowchart TB
 │   ├── unit/                   # 领域逻辑单测
 │   ├── integration/            # 服务与 API（临时 SQLite / Chroma）
 │   ├── e2e/                    # 全流水线（本地夹具 + 假外部客户端）
-│   └── evals/                  # 评测语料、题库与历史结果
+│   ├── evals/                  # 检索评测语料、题库与历史结果
+│   └── content_quality/        # 正文快照、人工标注与质量门禁
 ├── scripts/                    # 索引重建、一致性校验、备份、评测
 │   ├── reindex.py
 │   ├── check_consistency.py
 │   ├── backup.py
-│   └── run_eval.py
+│   ├── run_eval.py
+│   └── content_quality_report.py
 ├── .github/workflows/ci.yml    # ruff + mypy + pytest（覆盖率门槛 85%）
 ├── pyproject.toml
 ├── uv.lock                     # 依赖完全锁定

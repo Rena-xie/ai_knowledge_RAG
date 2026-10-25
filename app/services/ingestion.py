@@ -17,6 +17,7 @@ from app.core.settings import Settings
 from app.domain.chunking import ParentChunk as DomainParent
 from app.domain.chunking import chunk_markdown
 from app.domain.fingerprint import ContentFingerprint, compute_content_fingerprint
+from app.domain.language import detect_language
 from app.domain.source_links import parse_related_document_links
 from app.domain.state import SourceStatus
 from app.domain.url import normalize_url
@@ -699,6 +700,7 @@ class IngestionService:
         source.title = request.document.title
         source.content_hash = request.fingerprint.value
         source.fingerprint_version = request.fingerprint.version
+        source.language_code = detect_language(request.document.markdown)
         source.chunker_version = self._chunker_version
         source.embedding_model = self._settings.embedding_model
         source.error_code = None

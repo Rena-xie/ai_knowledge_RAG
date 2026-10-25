@@ -1,0 +1,1208 @@
+{
+  "version": 1,
+  "captured_on": "2026-10-25",
+  "annotation_note": "人工标注正文片段、噪声片段和关键结构；快照用于离线回归，不代表实时页面。",
+  "cases": [
+    {
+      "id": "zh-docs-tutorial-index",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "tutorial-index",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/index.html",
+      "expected_title": "Python 教程",
+      "body_markers": [
+        "本教程被设计为针对新入门 Python 语言的 *程序员*，而 **不是** 新入门编程的 *初学者*。",
+        "Python 解释器及丰富的标准库针对所有主流系统平台以源代码或二进制形式在 Python 网站 https://www.python.org/ 上免费提供，并可自由分发。 该网站还包含许多免费的第三方 Python 模块、程序和工具以及附加文档的分享链接。",
+        "本教程非正式地介绍了 Python 语言和系统的基本概念和特性。 请注意它预期你对于编程的总体概念有基本的了解。 准备好一个 Python 解释器随时上手练习会很有帮助，但所有的示例都是完备自足的，因此本教程也可以离线阅读。",
+        "本教程对每一个功能的介绍并不完整，甚至没有涉及全部常用功能，只是介绍了 Python 中最值得学习的功能，旨在让读者快速感受一下 Python 的特色。学完本教程的读者可以阅读和编写 Python 模块和程序，也可以继续学习 Python 标准库。"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [],
+      "heading_markers": [
+        "Python 教程"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/index.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-tutorial-index.html.gz",
+      "snapshot_sha256": "d6b5f74ec8330dc60b0da3119134aaceaaed53d853599906d834bf2ba28d2ce8",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-introduction",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "tutorial",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/introduction.html",
+      "expected_title": "3. Python 速览",
+      "body_markers": [
+        "下面的例子以是否显示提示符 (>>> 与 ...) 区分输入与输出：输入例子中的代码时，要键入以提示符开头的行中提示符后的所有内容；未以提示符开头的行是解释器的输出。 注意，例子中的某行出现的第二个提示符是用来结束多行命令的，此时，要键入一个空白行。",
+        "除了 `int` 和 `float`，Python 还支持其他数字类型，例如 `Decimal` 或 `Fraction`。 Python 还内置支持 复数，后缀 `j` 或 `J` 用于表示虚数 (例如 `3+5j`)。",
+        "还可以这样理解切片，索引指向的是字符 *之间* ，第一个字符的左侧标为 0，最后一个字符的右侧标为 *n* ，*n* 是字符串长度。例如：",
+        "第一行中的 *多重赋值* ：变量 `a` 和 `b` 同时获得新值 0 和 1 。最后一行又用了一次多重赋值，体现了，等号右边的所有表达式的值，都是在这一语句对任何变量赋新值之前求出来的——求值顺序为从左到右。"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "# 这是第一条注释"
+        },
+        {
+          "type": "list",
+          "marker": "文本序列类型 --- str"
+        },
+        {
+          "type": "table",
+          "marker": "| P | y | t | h | o | n |"
+        }
+      ],
+      "heading_markers": [
+        "3. Python 速览",
+        "3.1.1. 数字",
+        "3.2. 走向编程的第一步"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/introduction.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-introduction.html.gz",
+      "snapshot_sha256": "186448de1c29e54753959c065bfa78faa75a088077445c3ea91bd0e9fceae39a",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-controlflow",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/controlflow.html",
+      "expected_title": "4. 更多控制流工具",
+      "body_markers": [
+        "除了刚介绍的 `while` 语句，Python 还用了一些别的。我们将在本章中遇到它们。",
+        "如果用类组织数据，可以用“类名后接一个参数列表”这种很像构造器的形式，把属性捕获到变量里：",
+        "`/` 和 `*` 是可选的。这些符号表明形参如何把参数值传递给函数：位置、位置或关键字、关键字。关键字形参也叫作命名形参。",
+        "Python 项目大多都遵循 **PEP 8** 的风格指南；它推行的编码风格易于阅读、赏心悦目。Python 开发者均应抽时间悉心研读；以下是该提案中的核心要点："
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": ">>> x = int(input(\"Please enter an integer: \"))"
+        },
+        {
+          "type": "list",
+          "marker": "与解包赋值类似，元组和列表模式具有完全相同的含义并且实际上都能匹配任意序列，区别是它们不能匹配迭代器或字符串。"
+        },
+        {
+          "type": "table",
+          "marker": "|             |                  |"
+        }
+      ],
+      "heading_markers": [
+        "4. 更多控制流工具",
+        "4.9.1. 默认值参数",
+        "4.10. 小插曲：编码风格"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/controlflow.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-controlflow.html.gz",
+      "snapshot_sha256": "ba9bc9c4992117481335bb4a47847ed3bd268814bf825f6993f1d10f233c4317",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-datastructures",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/datastructures.html",
+      "expected_title": "5. 数据结构",
+      "body_markers": [
+        "list.index(*value*\\[, *start*\\[, *stop*\\]\\])",
+        "在 解包实参列表 一节中描述了如何使用 `*` 来“解包”可迭代对象的元素，将每个元素单独提供作为函数的参数。 解包还可在其他场景中使用，举例来说，在创建列表的时候。 在指定列表元素时，为一个表达式添加 `*` 前缀将对该表达式的结果执行解包，并把其中的元素逐一添加到我们创建的列表中:",
+        "创建集合用花括号或 `set()` 函数。注意，创建空集合只能用 `set()`，不能用 `{}`，`{}` 创建的是空字典，下一小节介绍数据结构：字典。",
+        "注意，当比较不同类型的对象时，只要待比较的对象提供了合适的比较方法，就可以使用 `<` 和 `>` 进行比较。例如，混合的数字类型通过数字值进行比较，所以，0 等于 0.0，等等。如果没有提供合适的比较方法，解释器不会随便给出一个比较结果，而是引发 `TypeError` 异常。"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": ">>> fruits = ['orange', 'apple', 'pear', 'banana', 'kiwi', 'apple', 'banana']"
+        },
+        {
+          "type": "list",
+          "marker": "在列表末尾添加一项。 类似于 `a[len(a):] = [x]`。"
+        }
+      ],
+      "heading_markers": [
+        "5. 数据结构",
+        "5.1.5. 列表和列表推导式中的解包",
+        "5.8. 序列和其他类型的比较"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/datastructures.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-datastructures.html.gz",
+      "snapshot_sha256": "0f9d157d1847daaf51ddfc513572ea4f7f0bb72d0d8e2ca2013cf5cae271d2cb",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-modules",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/modules.html",
+      "expected_title": "6. 模块",
+      "body_markers": [
+        "退出 Python 解释器后，再次进入时，之前在 Python 解释器中定义的函数和变量就丢失了。因此，编写较长程序时，最好用文本编辑器代替解释器，执行文件中的输入内容，这就是编写 *脚本* 。随着程序越来越长，为了方便维护，最好把脚本拆分成多个文件。编写脚本还有一个好处，不同程序调用同一个函数时，不用把函数定义复制到各个程序。",
+        "为了保证运行效率，每次解释器会话只导入一次模块。如果更改了模块内容，必须重启解释器；仅交互测试一个模块时，也可以使用 `importlib.reload()`，例如 `import importlib; importlib.reload(modulename)`。",
+        "包是通过使用“带点号模块名”来构造 Python 模块命名空间的一种方式。 例如，模块名 `A.B` 表示名为 `A` 的包中名为 `B` 的子模块。 就像使用模块可以让不同模块的作者不必担心彼此的全局变量名一样，使用带点号模块名也可以让 NumPy 或 Pillow 等多模块包的作者也不必担心彼此的模块名冲突。",
+        "需要注意的是，相对导入是基于当前模块所属包的名称进行的。由于主模块（即直接运行的脚本）没有所属包，因此那些打算作为 Python 应用程序主模块使用的模块，必须始终使用绝对导入。"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "# 斐波那契数列模块"
+        },
+        {
+          "type": "list",
+          "marker": "被命令行直接运行的脚本所在的目录（或未指定文件时的当前目录）。"
+        }
+      ],
+      "heading_markers": [
+        "6. 模块",
+        "6.1.3. “已编译的” Python 文件",
+        "6.4.2. 相对导入"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/modules.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-modules.html.gz",
+      "snapshot_sha256": "b6388b9d9878eef3286ac855ab313a87ec7d49e77caa8827da70500e1497a279",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-inputoutput",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/inputoutput.html",
+      "expected_title": "7. 输入与输出",
+      "body_markers": [
+        "程序输出有几种显示方式；数据既可以输出供人阅读的形式，也可以写入文件备用。本章探讨一些可用的方式。",
+        "与内置函数 `vars()` 一同使用时这种方式非常实用，它将返回一个包含所有局部变量的字典:",
+        "调用 `f.write()` 时，未使用 `with` 关键字，或未调用 `f.close()`，即使程序正常退出，也\\*\\*可能\\*\\* 导致 `f.write()` 的参数没有完全写入磁盘。",
+        "这种简单的序列化技术可以处理列表和字典，但在 JSON 中序列化任意类的实例，则需要付出额外努力。`json` 模块的参考包含对此的解释。"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": ">>> s = 'Hello, world.'"
+        },
+        {
+          "type": "list",
+          "marker": "使用 格式化字符串字面值 ，要在字符串开头的引号/三引号前添加 `f` 或 `F` 。在这种字符串中，可以在 `{` 和 `}` 字符之间输入引用的变量，或字面值的 Python 表达式。"
+        }
+      ],
+      "heading_markers": [
+        "7. 输入与输出",
+        "7.1.3. 手动格式化字符串",
+        "7.2.2. 使用 `json` 保存结构化数据"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/inputoutput.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-inputoutput.html.gz",
+      "snapshot_sha256": "a433009a805090a949613bd7b51187f07ea5fa0022b206e88856355d62dc76a0",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-errors",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/errors.html",
+      "expected_title": "8. 错误和异常",
+      "body_markers": [
+        "至此，本教程还未深入介绍错误信息，但如果您尝试过本教程前文中的例子，应该已经看到过一些错误信息。错误可（至少）被分为两种：*语法错误* 和 *异常*。",
+        "未处理异常的 `__str__()` 输出会被打印为该异常消息的最后部分 ('detail')。",
+        "为了表明一个异常是另一个异常的直接后果， `raise` 语句允许一个可选的 `from` 子句:",
+        "例如，当把异常收集到一个异常组时，我们可能想为各个错误添加上下文信息。在下文中，组中的每个异常都有一个说明，指出这个错误是什么时候发生的。"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": ">>> while True print('Hello world')"
+        },
+        {
+          "type": "list",
+          "marker": "首先，执行 *try 子句* （`try` 和 `except` 关键字之间的（多行）语句）。"
+        }
+      ],
+      "heading_markers": [
+        "8. 错误和异常",
+        "8.5. 异常链",
+        "8.10. 用注释细化异常情况"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/errors.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-errors.html.gz",
+      "snapshot_sha256": "fbdb9fcd295d8f65cee155006c35afafb70b98c6c13e91ec1813007c994517c8",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-classes",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/classes.html",
+      "expected_title": "9. 类",
+      "body_markers": [
+        "类提供了把数据和功能绑定在一起的方法。创建新类时创建了新的对象 *类型*，从而能够创建该类型的新 *实例*。实例具有能维持自身状态的属性，还具有能修改自身状态的方法（由其所属的类来定义）。",
+        "类的 *实例化* 使用函数表示法。 可以把类对象视为是返回该类的一个新实例的不带参数的函数。 举例来说（假设使用上述的类）:",
+        "名称 `BaseClassName` 必须定义于可从包含所派生的类的定义的作用域访问的命名空间中。 作为基类名称的替代，也允许使用其他任意表达式。 例如，当基类定义在另一个模块中时，这就会很有用处:",
+        "在大多数情况下，生成器表达式必须包裹在圆括号中。 不过，有一个特殊情况，当作为函数唯一的参数被提供时（如在上面使用了 `sum`, `set`, `max` 和 `list` 的例子中），生成器表达式不需要再额外包裹一层圆括号。 也就是说，以下两段代码在语法上是等价的:"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "def scope_test():"
+        },
+        {
+          "type": "list",
+          "marker": "最内层作用域，包含局部名称，并首先在其中进行搜索"
+        }
+      ],
+      "heading_markers": [
+        "9. 类",
+        "9.4. 补充说明",
+        "9.10. 生成器表达式"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/classes.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-classes.html.gz",
+      "snapshot_sha256": "2b1a193e1c6ef20441508503f91982515311eedeccd78f419cd9ad84adf48a16",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-stdlib",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "reference",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/stdlib.html",
+      "expected_title": "10. 标准库概览",
+      "body_markers": [
+        "一定要使用 `import os` 而不是 `from os import *` 。这将避免内建的 `open()` 函数被 `os.open()` 隐式替换掉，因为它们的使用方式大不相同。",
+        "`sys` 模块还具有 *stdin* ， *stdout* 和 *stderr* 的属性。后者对于发出警告和错误消息非常有用，即使在 *stdout* 被重定向后也可以看到它们:",
+        "一些 Python 用户对了解同一问题的不同方法的相对性能产生了浓厚的兴趣。Python 提供了一种可以立即回答这些问题的测量工具。",
+        "Python 有\"自带电池\"的理念。通过其包的复杂和强大功能可以最好地看到这一点。例如:"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": ">>> import os"
+        },
+        {
+          "type": "list",
+          "marker": "`xmlrpc.client` 和 `xmlrpc.server` 模块使得实现远程过程调用变成了小菜一碟。 尽管存在于模块名称中，但用户不需要直接了解或处理 XML。"
+        }
+      ],
+      "heading_markers": [
+        "10. 标准库概览",
+        "10.5. 字符串模式匹配",
+        "10.12. 内置电池"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/stdlib.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-stdlib.html.gz",
+      "snapshot_sha256": "cbedd3bfbc3c80cf78f7ed461f852f246d1a9113ad9353ca8aa7010420127110",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-stdlib2",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "reference",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/stdlib2.html",
+      "expected_title": "11. 标准库概览 --- 第二部分",
+      "body_markers": [
+        "`reprlib` 模块提供了一个定制化版本的 `repr()` 函数，用于缩略显示大型或深层嵌套的容器对象:",
+        "线程是一种对于非顺序依赖的多个任务进行解耦的技术。多线程可以提高应用的响应效率，当接收用户输入的同时，保持其他任务在后台运行。一个有关的应用场景是，将 I/O 和计算运行在两个并行的线程中。",
+        "此方式对大多数应用来说都适用，但偶尔也必须在对象持续被其他对象所使用时跟踪它们。 不幸的是，跟踪它们将创建一个会令其永久化的引用。 `weakref` 模块提供的工具可以不必创建引用就能跟踪对象。 当对象不再需要时，它将自动从一个弱引用表中被移除，并为弱引用对象触发一个回调。 典型应用包括对创建开销较大的对象进行缓存:",
+        "精确表示特性使得 `Decimal` 类能够执行对于二进制浮点数来说不适用的模运算和相等性检测:"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": ">>> import reprlib"
+        },
+        {
+          "type": "list",
+          "marker": "财务应用和其他需要精确十进制表示的用途，"
+        }
+      ],
+      "heading_markers": [
+        "11. 标准库概览 --- 第二部分",
+        "11.4. 多线程",
+        "11.8. 十进制浮点算术"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/stdlib2.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-stdlib2.html.gz",
+      "snapshot_sha256": "6f23f1bf5163cf76be99b7da9a805e5458fe43d875deb2521557a1501974340c",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-venv",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "tutorial",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/venv.html",
+      "expected_title": "12. 虚拟环境和包",
+      "body_markers": [
+        "Python 应用程序通常会使用不在标准库内的软件包和模块。应用程序有时需要特定版本的库，因为应用程序可能需要已修复某个特定错误的库版本，或者应用程序可能是使用了某个库的旧版接口编写的。",
+        "这将创建 `tutorial-env` 目录，如果它不存在的话，并在其中创建包含 Python 解释器副本和各种支持文件的目录。",
+        "你可以使用一个名为 **pip** 的程序来安装、升级和移除软件包。 默认情况下 `pip` 将从 Python Package Index 安装软件包。 你可以在你的 web 浏览器中查看 Python Package Index。",
+        "`pip` 有更多的选项。 有关 `pip` 的完整文档请查阅 安装 Python 模块 指南。 当你编写了一个软件包并希望将其放在 Python Package Index 中时，请查阅 Python packaging user guide。"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "python -m venv tutorial-env"
+        }
+      ],
+      "heading_markers": [
+        "12. 虚拟环境和包",
+        "12.2. 创建虚拟环境",
+        "12.3. 使用pip管理包"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/venv.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-venv.html.gz",
+      "snapshot_sha256": "9847164d1974e3503da61bdb39a88ed622dcc587fa1ae47224112853ae260147",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-whatnow",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "guide",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/whatnow.html",
+      "expected_title": "13. 接下来？",
+      "body_markers": [
+        "阅读本教程可能已经增强了你对使用 Python 的兴趣 - 你应该热衷于应用 Python 来解决你的实际问题。你应该去哪里了解更多？",
+        "在发问之前，请务必查看 常见问题 （或简写为 FAQ）。常见问题包含了很多一次又一次被提出的问题及其答案，所以可能已经包含了您的问题解决方案。"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "list",
+          "marker": "Python 内置对象参考: 介绍有关 Python 内置类型和函数的详细信息。"
+        }
+      ],
+      "heading_markers": [
+        "13. 接下来？"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/whatnow.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-whatnow.html.gz",
+      "snapshot_sha256": "bdaf50b4ad4b7f1558e12f9a176ae74c30780f18cd296142657b284ffac41cac",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-interactive",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "tutorial",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/interactive.html",
+      "expected_title": "14. 交互式编辑和编辑历史",
+      "body_markers": [
+        "某些版本的 Python 解释器支持编辑当前输入行和编辑历史记录，类似 Korn shell 和 GNU Bash shell 的功能 。这个功能使用了 GNU Readline 来实现，一个支持多种编辑方式的库。这个库有它自己的文档，在这里我们就不重复说明了。",
+        "此功能相比较早版本的解释器是很大的进步；不过，还有一些需求没有实现：如果能为连续行提示正确的缩进就更好了（解析器知道接下来是否需要 `INDENT` 词元）。 补全机制或许可以使用解释器的符号表。 使用一个命令来检查（甚至提示）匹配括号、引号等也会很有帮助。",
+        "一个可选的增强型交互式解释器是 IPython，它已经存在了有一段时间，它具有 tab 补全，探索对象和高级历史记录管理功能。它还可以彻底定制并嵌入到其他应用程序中。另一个相似的增强型交互式环境是 bpython。"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [],
+      "heading_markers": [
+        "14. 交互式编辑和编辑历史",
+        "14.1. Tab 补全和编辑历史",
+        "14.2. 默认交互式解释器的替代品"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/interactive.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-interactive.html.gz",
+      "snapshot_sha256": "bfbccf7ee950d4f17bbf51abc23fe0b00691b06a61f4414361044747836c9862",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-floatingpoint",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "guide",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/floatingpoint.html",
+      "expected_title": "15. 浮点算术：问题和限制",
+      "body_markers": [
+        "不幸的是，大多数的十进制小数都不能精确地表示为二进制小数。这导致在大多数情况下，你输入的十进制浮点数都只能近似地以二进制浮点数形式储存在计算机中。",
+        "必须重点了解的是，这在实际上只是一个假象：你只是将真正的机器值进行了舍入操作再 *显示* 而已。",
+        "由于这种表示法是精确的，它适用于跨越不同版本（平台无关）的 Python 移植数值，以及与支持相同格式的其他语言（例如 Java 和 C99）交换数据。",
+        "这意味着存储在计算机中的确切数字等于十进制数值 0.1000000000000000055511151231257827021181583404541015625。 许多语言（包括较旧版本的 Python）都不会显示这个完整的十进制数值，而是将结果舍入到 17 位有效数字:"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "0.3"
+        }
+      ],
+      "heading_markers": [
+        "15. 浮点算术：问题和限制",
+        "15.1. 表示性错误"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/floatingpoint.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-floatingpoint.html.gz",
+      "snapshot_sha256": "770d3c9af3d3bc2e96032c996deea20d43e69cb115c514a63d76910267990f68",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "zh-docs-appendix",
+      "origin": "public_page",
+      "language": "zh",
+      "category": "reference",
+      "source_url": "https://docs.python.org/zh-cn/3/tutorial/appendix.html",
+      "expected_title": "16. 附录",
+      "body_markers": [
+        "交互式 REPL 有两个变种版本。 经典的基本解释器在所有平台上受到支持，具有最小化的行控制功能。",
+        "在 BSD 等类 Unix 系统上，Python 脚本可以像 shell 脚本一样直接执行，通过在第一行添加：",
+        "Python 只有在交互模式时，才会读取此文件，而非在从脚本读指令或是将 `/dev/tty` 显式作为被运行的 Python 脚本的文件名时（后者反而表现得像一个交互式会话）。这个文件与交互式指令共享相同的命名空间，所以它定义或导入的对象可以在交互式会话中直接使用。您也可以在该文件中更改提示符 `sys.ps1` 和 `sys.ps2`。",
+        "sitecustomize 的工作方式相同，但通常由计算机管理员在全局 site-packages 目录中创建，并在 usercustomize 之前导入。 更多细节请参阅 `site` 模块的文档。"
+      ],
+      "noise_markers": [
+        "上一主题",
+        "报告代码错误"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "#!/usr/bin/env python3"
+        }
+      ],
+      "heading_markers": [
+        "16. 附录",
+        "16.1.2. 可执行的 Python 脚本",
+        "16.1.4. 定制模块"
+      ],
+      "final_url": "https://docs.python.org/zh-cn/3/tutorial/appendix.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/zh-docs-appendix.html.gz",
+      "snapshot_sha256": "3eeee0581f9c4e58c4d757aa4cf0a9ad49f2ffbffa438de56889d592e0cb7bca",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-docs-controlflow",
+      "origin": "public_page",
+      "language": "en",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/3/tutorial/controlflow.html",
+      "expected_title": "4. More Control Flow Tools",
+      "body_markers": [
+        "As well as the `while` statement just introduced, Python uses a few more",
+        "clause of a `try` statement than it does with that of `if`",
+        "...     \"\"\"Return a list containing the Fibonacci series up to n.\"\"\"",
+        "Annotations: {'ham': <class 'str'>, 'return': <class 'str'>, 'eggs': <class 'str'>}"
+      ],
+      "noise_markers": [
+        "Previous topic",
+        "Report a bug"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": ">>> x = int(input(\"Please enter an integer: \"))"
+        },
+        {
+          "type": "list",
+          "marker": "Like unpacking assignments, tuple and list patterns have exactly the same meaning and actually match arbitrary sequences. An important exception is that they don’t match iterators "
+        },
+        {
+          "type": "table",
+          "marker": "|             |                  |"
+        }
+      ],
+      "heading_markers": [
+        "4. More Control Flow Tools",
+        "4.9.1. Default Argument Values",
+        "4.10. Intermezzo: Coding Style"
+      ],
+      "final_url": "https://docs.python.org/3/tutorial/controlflow.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/en-docs-controlflow.html.gz",
+      "snapshot_sha256": "410be6521710af9a1cbc1b092be7350a5b0052dde6ccb73128b7af62d2a300df",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-docs-datastructures",
+      "origin": "public_page",
+      "language": "en",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/3/tutorial/datastructures.html",
+      "expected_title": "5. Data Structures",
+      "body_markers": [
+        "This chapter describes some things you’ve learned about already in more detail, and adds some new things as well.",
+        "“unpack” the elements of an iterable object, providing each one separately as",
+        "assignments, slice assignments, or methods like `append()` and",
+        "(1, 2, ('aa', 'ab'))   < (1, 2, ('abc', 'a'), 4)"
+      ],
+      "noise_markers": [
+        "Previous topic",
+        "Report a bug"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": ">>> fruits = ['orange', 'apple', 'pear', 'banana', 'kiwi', 'apple', 'banana']"
+        },
+        {
+          "type": "list",
+          "marker": "Add an item to the end of the list.  Similar to `a[len(a):] = [x]`."
+        }
+      ],
+      "heading_markers": [
+        "5. Data Structures",
+        "5.1.5. Unpacking in Lists and List Comprehensions",
+        "5.8. Comparing Sequences and Other Types"
+      ],
+      "final_url": "https://docs.python.org/3/tutorial/datastructures.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/en-docs-datastructures.html.gz",
+      "snapshot_sha256": "abb92118ea35ba11c262a74a41bd5bcda74487cd1d75d78944813f9cd1bb1baf",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-docs-inputoutput",
+      "origin": "public_page",
+      "language": "en",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/3/tutorial/inputoutput.html",
+      "expected_title": "7. Input and output",
+      "body_markers": [
+        "So far we’ve encountered two ways of writing values: *expression statements* and",
+        "For a complete overview of string formatting with `str.format()`, see",
+        "entire contents of the file will be read and returned; it’s your problem if the",
+        "arbitrary code, if the data was crafted by a skilled attacker."
+      ],
+      "noise_markers": [
+        "Previous topic",
+        "Report a bug"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": ">>> s = 'Hello, world.'"
+        },
+        {
+          "type": "list",
+          "marker": "To use formatted string literals, begin a string"
+        }
+      ],
+      "heading_markers": [
+        "7. Input and output",
+        "7.1.3. Manual string formatting",
+        "7.2.2. Saving structured data with `json`"
+      ],
+      "final_url": "https://docs.python.org/3/tutorial/inputoutput.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/en-docs-inputoutput.html.gz",
+      "snapshot_sha256": "d67c1058bc356d9fcaabfddd27c989a57761cc2e77e57d924e5cc62dae8a584a",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-docs-errors",
+      "origin": "public_page",
+      "language": "en",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/3/tutorial/errors.html",
+      "expected_title": "8. Errors and Exceptions",
+      "body_markers": [
+        "Until now error messages haven’t been more than mentioned, but if you have tried",
+        "For example, the following code will print B, C, D in that order:",
+        "To indicate that an exception is a direct consequence of another, the",
+        "includes all notes, in the order they were added, after the exception."
+      ],
+      "noise_markers": [
+        "Previous topic",
+        "Report a bug"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": ">>> while True print('Hello world')"
+        },
+        {
+          "type": "list",
+          "marker": "First, the *try clause* (the statement(s) between the `try` and `except` keywords) is executed."
+        }
+      ],
+      "heading_markers": [
+        "8. Errors and Exceptions",
+        "8.5. Exception Chaining",
+        "8.10. Enriching Exceptions with Notes"
+      ],
+      "final_url": "https://docs.python.org/3/tutorial/errors.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/en-docs-errors.html.gz",
+      "snapshot_sha256": "03e27a9954d761866f42d68f436bcd68f90782b829618602641ea26a4c71e3bb",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-docs-classes",
+      "origin": "public_page",
+      "language": "en",
+      "category": "technical-docs",
+      "source_url": "https://docs.python.org/3/tutorial/classes.html",
+      "expected_title": "9. Classes",
+      "body_markers": [
+        "Classes provide a means of bundling data and functionality together.  Creating",
+        "new names use the local scope: in particular, `import` statements and",
+        "object, and can be stored away and called at a later time.  For example:",
+        ">>> list(data[i] for i in range(len(data)-1, -1, -1))"
+      ],
+      "noise_markers": [
+        "Previous topic",
+        "Report a bug"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "def scope_test():"
+        },
+        {
+          "type": "list",
+          "marker": "the innermost scope, which is searched first, contains the local names"
+        }
+      ],
+      "heading_markers": [
+        "9. Classes",
+        "9.4. Random Remarks",
+        "9.10. Generator Expressions"
+      ],
+      "final_url": "https://docs.python.org/3/tutorial/classes.html",
+      "http_status": 200,
+      "content_type": "text/html",
+      "snapshot_path": "tests/content_quality/snapshots/en-docs-classes.html.gz",
+      "snapshot_sha256": "c3d4679734812db73138e1b9f844ff4a6b3c259e08661f3dcf0c98a19185884f",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-fastapi-first-steps",
+      "origin": "public_page",
+      "language": "en",
+      "category": "framework-docs",
+      "source_url": "https://fastapi.tiangolo.com/tutorial/first-steps/",
+      "expected_title": "First Steps",
+      "body_markers": [
+        "The simplest FastAPI file could look like this:",
+        "You can also pass the file path to the `fastapi dev` command, and it will guess the FastAPI app object to use:",
+        "You put it on top of a function. Like a pretty decorative hat (I guess that's where the term came from).",
+        "Follow your cloud provider's guides to deploy FastAPI apps with them. 🤓"
+      ],
+      "noise_markers": [
+        "Back to top",
+        "Skip to content"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "from fastapi import FastAPI"
+        },
+        {
+          "type": "list",
+          "marker": "`POST`"
+        }
+      ],
+      "heading_markers": [
+        "First Steps",
+        "Deploy your app (optional)",
+        "Recap"
+      ],
+      "final_url": "https://fastapi.tiangolo.com/tutorial/first-steps/",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "snapshot_path": "tests/content_quality/snapshots/en-fastapi-first-steps.html.gz",
+      "snapshot_sha256": "794c7112882e54dd8a59788c025b63a99ac3be7d6bda83beb1a1238390f79423",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-fastapi-path-params",
+      "origin": "public_page",
+      "language": "en",
+      "category": "framework-docs",
+      "source_url": "https://fastapi.tiangolo.com/tutorial/path-params/",
+      "expected_title": "Path Parameters",
+      "body_markers": [
+        "You can declare path \"parameters\" or \"variables\" with the same syntax used by Python format strings:",
+        "Because of this, **FastAPI** itself provides an alternative API documentation (using ReDoc), which you can access at http://127.0.0.1:8000/redoc:",
+        "Because the available values for the *path parameter* are predefined, the interactive docs can show them nicely:",
+        "That's probably the main visible advantage of **FastAPI** compared to alternative frameworks (apart from the raw performance)."
+      ],
+      "noise_markers": [
+        "Back to top",
+        "Skip to content"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "from fastapi import FastAPI"
+        },
+        {
+          "type": "list",
+          "marker": "Editor support: error checks, autocompletion, etc."
+        }
+      ],
+      "heading_markers": [
+        "Path Parameters",
+        "Declare a *path parameter*",
+        "Recap"
+      ],
+      "final_url": "https://fastapi.tiangolo.com/tutorial/path-params/",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "snapshot_path": "tests/content_quality/snapshots/en-fastapi-path-params.html.gz",
+      "snapshot_sha256": "9902500c2d894a2887ed2f6f10a6a0c1789af01beb3632859bb847671feb004c",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-fastapi-query-params",
+      "origin": "public_page",
+      "language": "en",
+      "category": "framework-docs",
+      "source_url": "https://fastapi.tiangolo.com/tutorial/query-params/",
+      "expected_title": "Query Parameters",
+      "body_markers": [
+        "When you declare other function parameters that are not part of the path parameters, they are automatically interpreted as \"query\" parameters.",
+        "In this case, the function parameter `q` will be optional, and will be `None` by default.",
+        "And you don't have to declare them in any specific order.",
+        "You could also use `Enum`s the same way as with Path Parameters."
+      ],
+      "noise_markers": [
+        "Back to top",
+        "Skip to content"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "from fastapi import FastAPI"
+        },
+        {
+          "type": "list",
+          "marker": "`skip`: with a value of `0`"
+        }
+      ],
+      "heading_markers": [
+        "Query Parameters",
+        "Optional parameters",
+        "Required query parameters"
+      ],
+      "final_url": "https://fastapi.tiangolo.com/tutorial/query-params/",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "snapshot_path": "tests/content_quality/snapshots/en-fastapi-query-params.html.gz",
+      "snapshot_sha256": "4b50134005cdf2a9af94de15b6d47a169aae27ab16dd9d819652650e9c840e32",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-fastapi-body",
+      "origin": "public_page",
+      "language": "en",
+      "category": "framework-docs",
+      "source_url": "https://fastapi.tiangolo.com/tutorial/body/",
+      "expected_title": "Request Body",
+      "body_markers": [
+        "When you need to send data from a client (let's say, a browser) to your API, you send it as a **request body**.",
+        "...as `description` and `tax` are optional (with a default value of `None`), this JSON \"`object`\" would also be valid:",
+        "But you would get the same editor support with PyCharm and most of the other Python editors:",
+        "If you don't want to use Pydantic models, you can also use **Body** parameters. See the docs for Body - Multiple Parameters: Singular values in body."
+      ],
+      "noise_markers": [
+        "Back to top",
+        "Skip to content"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "from fastapi import FastAPI"
+        },
+        {
+          "type": "list",
+          "marker": "Read the body of the request as JSON."
+        }
+      ],
+      "heading_markers": [
+        "Request Body",
+        "Automatic docs",
+        "Without Pydantic"
+      ],
+      "final_url": "https://fastapi.tiangolo.com/tutorial/body/",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "snapshot_path": "tests/content_quality/snapshots/en-fastapi-body.html.gz",
+      "snapshot_sha256": "a2cf2a51bff0023b95aab85b32263cb0d565b8e2aba54e2219dc8fa6e5a2085b",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-fastapi-dependencies",
+      "origin": "public_page",
+      "language": "en",
+      "category": "framework-docs",
+      "source_url": "https://fastapi.tiangolo.com/tutorial/dependencies/",
+      "expected_title": "Dependencies",
+      "body_markers": [
+        "**FastAPI** has a very powerful but intuitive **Dependency Injection** system.",
+        "Although you use `Depends` in the parameters of your function the same way you use `Body`, `Query`, etc, `Depends` works a bit differently.",
+        "As dependencies will also be called by **FastAPI** (the same as your *path operation functions*), the same rules apply while defining your functions.",
+        "**FastAPI** will take care of adding it all to the OpenAPI schema, so that it is shown in the interactive documentation systems."
+      ],
+      "noise_markers": [
+        "Back to top",
+        "Skip to content"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "from typing import Annotated"
+        },
+        {
+          "type": "list",
+          "marker": "Have shared logic (the same code logic again and again)."
+        }
+      ],
+      "heading_markers": [
+        "Dependencies",
+        "🤓 Other versions and variants",
+        "Integrated with **OpenAPI**"
+      ],
+      "final_url": "https://fastapi.tiangolo.com/tutorial/dependencies/",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "snapshot_path": "tests/content_quality/snapshots/en-fastapi-dependencies.html.gz",
+      "snapshot_sha256": "ae1f492784c1ccdc3f7f85f358c3f217f710fc4993ea3759561509601a131d04",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-fastapi-security",
+      "origin": "public_page",
+      "language": "en",
+      "category": "framework-docs",
+      "source_url": "https://fastapi.tiangolo.com/tutorial/security/",
+      "expected_title": "Security",
+      "body_markers": [
+        "There are many ways to handle security, authentication and authorization.",
+        "There was an OAuth 1, which is very different from OAuth2, and more complex, as it included direct specifications on how to encrypt the communication.",
+        "So, it was a complete additional system.",
+        "And you will also see how it gets automatically integrated into the interactive documentation system."
+      ],
+      "noise_markers": [
+        "Back to top",
+        "Skip to content"
+      ],
+      "structure_markers": [
+        {
+          "type": "list",
+          "marker": "`apiKey`: an application specific key that can come from:"
+        }
+      ],
+      "heading_markers": [
+        "Security",
+        "OpenID Connect",
+        "**FastAPI** utilities"
+      ],
+      "final_url": "https://fastapi.tiangolo.com/tutorial/security/",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "snapshot_path": "tests/content_quality/snapshots/en-fastapi-security.html.gz",
+      "snapshot_sha256": "b400747c4dec027d7021447e84dce2772015c6d8c0a57de14fe66c7613822862",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-fastapi-bigger-applications",
+      "origin": "public_page",
+      "language": "en",
+      "category": "framework-docs",
+      "source_url": "https://fastapi.tiangolo.com/tutorial/bigger-applications/",
+      "expected_title": "Bigger Applications - Multiple Files",
+      "body_markers": [
+        "If you are building an application or a web API, it's rarely the case that you can put everything in a single file.",
+        "The end result is that the item paths are now:",
+        "And `items.router` contains the `APIRouter` inside of the file `app/routers/items.py`.",
+        "Treat `router.routes` as a lower-level route tree that can contain route definitions and included routers, and avoid relying on it as a flat list of final path operations."
+      ],
+      "noise_markers": [
+        "Back to top",
+        "Skip to content"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "."
+        },
+        {
+          "type": "list",
+          "marker": "The `app` directory contains everything. And it has an empty file `app/__init__.py`, so it is a \"Python package\" (a collection of \"Python modules\"): `app`."
+        }
+      ],
+      "heading_markers": [
+        "Bigger Applications - Multiple Files",
+        "The main `FastAPI`",
+        "Include an `APIRouter` in another"
+      ],
+      "final_url": "https://fastapi.tiangolo.com/tutorial/bigger-applications/",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "snapshot_path": "tests/content_quality/snapshots/en-fastapi-bigger-applications.html.gz",
+      "snapshot_sha256": "af1ec28bd5a83f6e1e2b6ca8b7e5027aee8fc4a37998665525a93edcfebe5b81",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-fastapi-testing",
+      "origin": "public_page",
+      "language": "en",
+      "category": "framework-docs",
+      "source_url": "https://fastapi.tiangolo.com/tutorial/testing/",
+      "expected_title": "Testing",
+      "body_markers": [
+        "Thanks to Starlette, testing **FastAPI** applications is easy and enjoyable.",
+        "**FastAPI** provides the same `starlette.testclient` as `fastapi.testclient` just as a convenience for you, the developer. But it comes directly from Starlette.",
+        "It has a `GET` operation that could return an error.",
+        "It will detect the files and tests automatically, execute them, and report the results back to you."
+      ],
+      "noise_markers": [
+        "Back to top",
+        "Skip to content"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "from fastapi import FastAPI"
+        },
+        {
+          "type": "list",
+          "marker": "To pass a *path* or *query* parameter, add it to the URL itself."
+        }
+      ],
+      "heading_markers": [
+        "Testing",
+        "Testing: extended example",
+        "Run it"
+      ],
+      "final_url": "https://fastapi.tiangolo.com/tutorial/testing/",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "snapshot_path": "tests/content_quality/snapshots/en-fastapi-testing.html.gz",
+      "snapshot_sha256": "c8057bb29054627ae4ec976e27e10925129e059d520885419a05d4ecea9fc248",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-langchain-chunking",
+      "origin": "public_page",
+      "language": "en",
+      "category": "engineering-blog",
+      "source_url": "https://www.langchain.com/blog/a-chunk-by-any-other-name",
+      "expected_title": "A Chunk by Any Other Name: Structured Text Splitting and Metadata-enhanced RAG",
+      "body_markers": [
+        "There's something of a structural irony in the fact that building context-aware LLM applications typically begins with a systematic process of *de*contextualization, wherein",
+        "Now we can put everything together into a single Q+A retrieval chain.",
+        "Data source: https://plato.stanford.edu/entries/nietzsche/",
+        "Huge thanks to Bagatur Askaryan at LangChain for advice on improving query construction and for recent upgrades to the self-querying retriever API."
+      ],
+      "noise_markers": [
+        "Subscribe",
+        "Privacy Policy"
+      ],
+      "structure_markers": [],
+      "heading_markers": [
+        "Imports and Environment Setup",
+        "Additional Examples",
+        "Acknowledgements"
+      ],
+      "final_url": "https://www.langchain.com/blog/a-chunk-by-any-other-name",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "snapshot_path": "tests/content_quality/snapshots/en-langchain-chunking.html.gz",
+      "snapshot_sha256": "fcb7e19ca5e0d1b9aa06f41e4c8399ed801bf74d2d967ae289d89b61cfda670d",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "en-langchain-agentic-rag",
+      "origin": "public_page",
+      "language": "en",
+      "category": "engineering-blog",
+      "source_url": "https://www.langchain.com/blog/agentic-rag-with-langgraph",
+      "expected_title": "Self-Reflective RAG with LangGraph",
+      "body_markers": [
+        "To highlight the flexibility of LangGraph, we'll use it to implement ideas inspired from two interesting and recent self-reflective RAG papers, CRAG and Self-RAG.",
+        "We can represent this as a graph, making a few simplifications and adjustment for illustrative purposes (of course, this can be customized and extended as desired):",
+        "We can outline this as simplified graph to understand the information flow:",
+        "The overall trace is fairly easy to audit, with the nodes clearly laid out:"
+      ],
+      "noise_markers": [
+        "Subscribe",
+        "Privacy Policy"
+      ],
+      "structure_markers": [
+        {
+          "type": "list",
+          "marker": "Employ a lightweight **retrieval evaluator** to assess the overall quality of retrieved documents for a query, returning a confidence score for each."
+        }
+      ],
+      "heading_markers": [
+        "Key Links",
+        "Self-Reflective RAG with LangGraph",
+        "Conclusion"
+      ],
+      "final_url": "https://www.langchain.com/blog/agentic-rag-with-langgraph",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "snapshot_path": "tests/content_quality/snapshots/en-langchain-agentic-rag.html.gz",
+      "snapshot_sha256": "c8e3a37db7625f68bc03650df4715886cd7576ece5435b0a71232816321aa8f9",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "mixed-bilingual-guide",
+      "origin": "authored",
+      "language": "mixed",
+      "category": "bilingual-guide",
+      "source_url": "authored://mixed-bilingual-guide",
+      "expected_title": "双语知识库实践指南",
+      "body_markers": [
+        "这个实践指南说明如何建立同时支持中文和英文的知识库。",
+        "This practical guide explains how to build a knowledge base that supports both Chinese and English documents.",
+        "A failed refresh must not damage published content or retrieval data."
+      ],
+      "noise_markers": [
+        "Subscribe to updates",
+        "Privacy Policy"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "document = await fetch_and_extract(url)"
+        },
+        {
+          "type": "list",
+          "marker": "Extract content, compute fingerprints, and reject duplicates."
+        },
+        {
+          "type": "table",
+          "marker": "记录语言 / records language"
+        }
+      ],
+      "heading_markers": [
+        "双语知识库实践指南",
+        "入库流程 / Ingestion workflow",
+        "示例 / Example"
+      ],
+      "snapshot_path": "tests/content_quality/snapshots/mixed-bilingual-guide.html",
+      "snapshot_sha256": "6826b4873db7f8acba9709d9f46377501b5174da69f8a13ebc2f818fa9fc72ff",
+      "captured_on": "2026-10-25"
+    },
+    {
+      "id": "mixed-bilingual-api-reference",
+      "origin": "authored",
+      "language": "mixed",
+      "category": "bilingual-reference",
+      "source_url": "authored://mixed-bilingual-api-reference",
+      "expected_title": "Bilingual API Reference 双语接口参考",
+      "body_markers": [
+        "这个接口参考说明知识检索服务的公开契约。",
+        "This API reference documents the public contract of the knowledge retrieval service.",
+        "Every evidence item keeps the source language."
+      ],
+      "noise_markers": [
+        "Navigation | API Reference | Changelog",
+        "Privacy Policy"
+      ],
+      "structure_markers": [
+        {
+          "type": "code",
+          "marker": "POST /api/v1/search"
+        },
+        {
+          "type": "list",
+          "marker": "证据正文与标题路径 Evidence text and heading path"
+        },
+        {
+          "type": "table",
+          "marker": "| 200 | 返回证据 / evidence returned |"
+        }
+      ],
+      "heading_markers": [
+        "Bilingual API Reference 双语接口参考",
+        "请求 / Request",
+        "响应 / Response"
+      ],
+      "snapshot_path": "tests/content_quality/snapshots/mixed-bilingual-api-reference.html",
+      "snapshot_sha256": "7b7e7063f26b039adc004811202cbd9e72a6c3debdd45ec0474ce383349e367c",
+      "captured_on": "2026-10-25"
+    }
+  ]
+}

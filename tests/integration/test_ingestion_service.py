@@ -198,6 +198,7 @@ def test_ingest_completes_source_and_indexes_children(
     source = env["source_service"].get(result.source_id)
     assert source.status == "completed"
     assert source.title == "BM25 指南"
+    assert source.language_code == "zh"
     assert source.content_hash
     assert source.chunker_version == "v1"
     assert source.embedding_model == "BAAI/bge-m3"
