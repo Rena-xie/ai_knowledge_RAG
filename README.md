@@ -331,6 +331,8 @@ uv run mypy
 
 ## 文档与许可
 
+- 项目总体说明与文档优先级：[PROJECT.md](PROJECT.md)
+- 版本规格：[v1](项目开发说明_v1.md)、[v2](项目开发说明_v2.md)
 - 项目质量评价表：[空表](开发项目质量评价表_空表.md)、[V1](开发项目质量评价表_v1.md)、
   [V2](开发项目质量评价表_v2.md)
 - 运维脚本说明：[scripts/README.md](scripts/README.md)
