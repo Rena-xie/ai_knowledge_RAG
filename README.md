@@ -1,10 +1,9 @@
 # ai-knowledge-rag
 
-面向个人 AI 学习的网页知识采集、混合检索与有据问答系统。
+面向个人 AI 学习的网页知识采集、混合检索与可追溯证据服务。
 
-> **v2 目标边界**：当前 `main` 仍包含 `2.0.0` 的旧 `/api/v1/query` 兼容链路。
-> 目标 v2 规格要求 RAG 不调用 LLM，只返回检索证据；问答由独立 Agent 项目实现。
-> README 将在代码迁移完成时同步更新。
+> RAG 不调用 LLM，也不提供问答接口。它只负责入库、组织和检索证据；
+> 外部 Agent 调用 `/api/v1/search` 后，使用自己的 LLM 生成中文回答和引用。
 
 ## 项目简介
 
@@ -13,11 +12,10 @@
 本项目把这些网页变成一座**可在本地运行、可追溯来源的知识库**：
 
 > 提交一个公开网页 URL → 抓取并提取正文 → 结构化切块 → 建立向量与全文双索引 →
-> 用自然语言提问 → 得到**每条结论都能点回原文**的回答。
+> 用自然语言检索 → 返回可追溯到原文的证据。
 
 设计目标是"功能完整、可正常运行、数据可重建"：SQLite 是唯一权威存储，FTS5 与
-Chroma 是可随时重建的派生索引；回答必须携带服务端校验过的引用；证据不足时明确
-拒答，而不是让模型自由发挥。
+Chroma 是可随时重建的派生索引；每条证据包含真实来源、Child ID、URL 和标题路径。
 
 ## 核心功能
 
@@ -27,24 +25,23 @@ Chroma 是可随时重建的派生索引；回答必须携带服务端校验过�
 | **异步入库** | 批量 URL 任务、单线程 FIFO Worker、逐条状态、失败重试、幂等键、重启恢复 |
 | **来源管理** | 分页列表、详情与状态查询、错误码回传、级联删除（关系数据 + 两处派生索引）、重复 URL 幂等处理 |
 | **混合检索** | Dense + BM25 双路召回，RRF 融合 + Cross-Encoder rerank（失败回退 RRF），字面量查询按 BM25 名次提权；支持相关性门槛与单路降级 |
-| **有据问答** | 证据按不可信输入包裹，模型只能引用上下文内标识；服务端逐条校验引用，无效引用剔除并标记；证据不足返回固定话术 |
+| **可追溯证据** | 返回来源、Child、最终 URL、标题路径、分值与原文；Agent 可据此生成自己的回答和引用 |
 | **可运维** | 启动自检、健康检查实际探活 SQLite/FTS5/Chroma、索引全量/按来源重建、一致性校验、数据备份、滚动日志、`request_id` 全链路追踪 |
-| **工程质量** | 274 个测试、分支覆盖率 88.19%（门禁 85%）、Ruff + mypy 零错误、GitHub Actions CI |
+| **工程质量** | 单元、集成、E2E、检索评测、Ruff、mypy、覆盖率门禁和 GitHub Actions CI |
 
 ## 系统架构
 
 ```mermaid
 flowchart TB
     subgraph CLIENT["调用方"]
-        UI["浏览器 / API 客户端"]
-        AGENT["AI Learning Agent（已接入）"]
+        UI["API 客户端"]
+        AGENT["外部 Agent"]
     end
 
     subgraph APILAYER["API 层 · FastAPI"]
         SRC["/api/v1/sources<br/>来源收录与管理"]
         INGEST["/api/v1/ingestions<br/>批量异步入库"]
         SEARCH["/api/v1/search<br/>检索调试"]
-        QUERY["/api/v1/query<br/>有据问答"]
         HEALTH["/health/live · /health/ready"]
     end
 
@@ -53,14 +50,12 @@ flowchart TB
         S2["IngestionService"]
         S5["JobService +<br/>IngestionWorker"]
         S3["RetrievalService"]
-        S4["QAService"]
     end
 
     subgraph DOMAIN["领域逻辑层 · 纯函数"]
         D1["URL 规范化<br/>状态机"]
         D2["结构感知切块<br/>Parent / Child"]
         D3["RRF 融合<br/>rerank / 字面量提权<br/>相关性门槛"]
-        D4["引用解析与校验"]
     end
 
     subgraph INFRA["基础设施层 · 适配器"]
@@ -69,19 +64,16 @@ flowchart TB
         VEC[("Chroma<br/>向量索引")]
         FETCH["HTTPX 抓取<br/>SSRF / robots.txt"]
         EMB["Embedding API<br/>bge-m3"]
-        LLM["LLM API<br/>DeepSeek"]
     end
 
-    UI --> SRC & INGEST & SEARCH & QUERY & HEALTH
-    AGENT -.-> INGEST & SEARCH & QUERY
+    UI --> SRC & INGEST & SEARCH & HEALTH
+    AGENT -.-> INGEST & SEARCH
     SRC --> S1 --> S2
     INGEST --> S5 --> S2
     SEARCH --> S3
-    QUERY --> S3 --> S4
     S2 --> D1 --> FETCH --> D2 --> EMB
     S2 --> DB & FTS & VEC
     S3 --> EMB & FTS & VEC --> D3 --> DB
-    S4 --> LLM --> D4
 ```
 
 两条核心流水线：
@@ -89,15 +81,15 @@ flowchart TB
 ```text
 入库：URL 校验 → JobService → 单线程 Worker → 抓取/正文提取 → 结构化切块
       → Embedding → FTS5 + Chroma 写入 → 逐条状态更新
-问答：问题 → Dense + BM25 双路召回 → RRF 融合 → Cross-Encoder rerank
-      → 字面量提权 → 父级上下文恢复 → 相关性门槛 → LLM → 引用校验
+检索：问题 → Dense + BM25 双路召回 → RRF 融合 → Cross-Encoder rerank
+      → 字面量提权 → 父级上下文恢复 → 相关性门槛 → 证据
 ```
 
 ### 关键设计取舍
 
 - **权威存储与派生索引分离**：SQLite 保存来源与切块；FTS5、Chroma 均可从关系库
   全量重建，索引损坏或更换向量库不需要人工修复数据。
-- **Parent / Child 两级切块**：Parent 保留章节完整性，Child 是检索与引用的最小单位；
+- **Parent / Child 两级切块**：Parent 保留章节完整性，Child 是检索与证据关联的最小单位；
   标题路径参与索引以提升专有名词召回，命中后恢复父级上下文避免语义割裂。
 - **双路召回而不是单向量检索**：BM25 补足专有名词与代码符号（`//`、`==`、`->`），
   RRF 只使用物理排名融合，避免两路分数量纲不一致。
@@ -120,7 +112,6 @@ flowchart TB
 │   │   ├── ingestions.py       # 异步入库任务创建、查询、重试
 │   │   ├── stats.py            # 入库任务统计
 │   │   ├── search.py           # 检索调试接口
-│   │   ├── query.py            # 有据问答接口
 │   │   ├── health.py           # 存活 / 就绪检查
 │   │   ├── middleware.py       # request_id、请求体大小限制
 │   │   ├── errors.py           # 统一错误响应
@@ -130,14 +121,12 @@ flowchart TB
 │   │   ├── ingestion.py        # 抓取 → 解析 → 切块 → 向量化 → 双索引
 │   │   ├── ingestion_jobs.py   # 批量异步任务、单线程 Worker、恢复
 │   │   ├── retrieval.py        # 双路召回 → RRF → rerank → 字面量提权 → 父级上下文
-│   │   ├── qa.py               # 提示词组装、引用校验、证据不足处理
 │   │   ├── evaluation.py       # 检索指标计算
 │   │   └── maintenance.py      # 重建索引、一致性校验、备份
 │   ├── domain/                 # 领域逻辑层：纯函数，无 I/O
 │   │   ├── chunking.py         # 结构感知 Parent / Child 切块
 │   │   ├── rrf.py              # 倒数排名融合
 │   │   ├── literal.py          # 代码字面量与路径识别
-│   │   ├── citations.py        # 引用解析与校验
 │   │   ├── state.py            # 来源状态机
 │   │   └── url.py              # URL 规范化与鉴重
 │   ├── infra/                  # 基础设施层：外部依赖适配器
@@ -149,11 +138,9 @@ flowchart TB
 │   │   ├── robots.py           # robots.txt 检查与缓存
 │   │   ├── parser.py           # 正文提取
 │   │   ├── embedding.py        # Embedding API 客户端
-│   │   ├── llm.py              # LLM API 客户端
 │   │   └── rerank.py           # Cross-Encoder rerank 客户端
 │   ├── core/                   # 配置、日志、错误码、启动自检
-│   ├── cli/                    # 评测与维护命令
-│   └── prompts/                # 分层提示词模板（system / user）
+│   └── cli/                    # 评测与维护命令
 ├── tests/
 │   ├── unit/                   # 领域逻辑单测
 │   ├── integration/            # 服务与 API（临时 SQLite / Chroma）
@@ -178,7 +165,7 @@ flowchart TB
 | Web 框架 | FastAPI、Uvicorn、Pydantic Settings |
 | 数据存储 | SQLite + SQLAlchemy（权威）、SQLite FTS5 + jieba（BM25）、Chroma（向量） |
 | 采集与解析 | HTTPX、Trafilatura |
-| 外部模型 | SiliconFlow `BAAI/bge-m3`（Embedding）、`BAAI/bge-reranker-v2-m3`（rerank，v2）、DeepSeek `deepseek-flash`（生成） |
+| 外部模型 | SiliconFlow `BAAI/bge-m3`（Embedding）、`BAAI/bge-reranker-v2-m3`（rerank，v2） |
 
 ## 评测结果
 
@@ -189,7 +176,7 @@ flowchart TB
 | 128 题按题加权 | 0.7086 | 0.8673 | 0.2212 | 0.7106 | 0.6645 |
 | 84 个独立问题 | 0.7738 | 0.8861 | 0.2152 | 0.7574 | 0.7282 |
 
-引用有效率和无答案识别率均为 1.0。标准 Recall@5 尚未达到 0.80 目标。
+标准 Recall@5 尚未达到 0.80 目标。历史生成链路中的引用和无答案指标不属于当前 RAG 验收。
 
 ## 部署指南
 
@@ -197,7 +184,7 @@ flowchart TB
 
 - Python 3.13（由 `.python-version` 锁定；uv 缺失时会自动下载对应解释器）
 - [uv](https://docs.astral.sh/uv/)
-- 两个外部 API Key：SiliconFlow（Embedding）与 DeepSeek（生成）。调用会产生费用。
+- 一个外部 API Key：SiliconFlow（Embedding/rerank）。调用会产生费用。
 - 主力开发与验收环境为 Windows；CI 在 Ubuntu 上执行同一套测试。
 
 > **Chroma 路径必须是纯 ASCII**：`CHROMA_PATH` 解析为绝对路径后若包含中文等非 ASCII
@@ -222,7 +209,6 @@ macOS / Linux 使用 `cp .env.example .env`。然后编辑 `.env`，至少填写
 
 ```dotenv
 EMBEDDING_API_KEY=你的 SiliconFlow Key
-LLM_API_KEY=你的 DeepSeek Key
 ```
 
 其余参数均有默认值，含义见 `.env.example` 中的注释。`.env` 已被 `.gitignore` 排除，
@@ -259,14 +245,14 @@ curl.exe -X POST http://127.0.0.1:8000/api/v1/sources `
   -H "Content-Type: application/json" `
   -d '{"url":"https://example.com"}'
 
-# 基于知识库提问
-curl.exe -X POST http://127.0.0.1:8000/api/v1/query `
+# 检索相关证据
+curl.exe -X POST http://127.0.0.1:8000/api/v1/search `
   -H "Content-Type: application/json" `
   -d '{"question":"这个页面讲了什么？"}'
 ```
 
-`/api/v1/search` 是调试接口，会返回 Dense、BM25、RRF 三组结果与耗时，便于定位检索
-问题；`/api/v1/query` 返回答案、结构化引用与 `citations_validated` 标记。
+`/api/v1/search` 返回 Dense、BM25、融合结果、证据和耗时。外部 Agent 使用这些证据
+调用自己的 LLM；RAG 不生成答案。
 
 > 示例使用单引号包裹 JSON（PowerShell 7 / bash 通用）。Windows PowerShell 5.1 若出现
 > 引号被吞，改用 `-d "{\"url\":\"https://example.com\"}"` 或直接在 `/docs` 页面调试。
@@ -310,7 +296,7 @@ uv run python scripts/check_consistency.py
 # 备份 SQLite 与 Chroma（建议先停服）
 uv run python scripts/backup.py --target backups
 
-# 运行检索与引用评测（会写入独立评测库，可重复执行）
+# 运行检索评测（会写入独立评测库，可重复执行）
 uv run python scripts/run_eval.py
 ```
 
@@ -331,7 +317,7 @@ uv run mypy
 | 启动时报 Chroma 路径含非 ASCII | 将 `CHROMA_PATH` 指向纯 ASCII 目录后重启。 |
 | 入库返回 `INGEST_BUSY` / `INGESTION_QUEUE_FULL` | 同步 `/sources` 入库串行；异步入库队列满。等待当前任务完成或稍后重试。 |
 | 页面抓取返回 `ROBOTS_DISALLOWED` | 目标站点 `robots.txt` 禁止抓取，属于预期行为。 |
-| 问答返回 `insufficient_evidence` | 检索最高相似度低于 `MIN_DENSE_SIMILARITY`（默认 0.58）；确认库内已收录相关内容，换 Embedding 模型后需重新校准该阈值。 |
+| `/search` 返回空 `evidences` | 检索最高相似度低于 `MIN_DENSE_SIMILARITY`（默认 0.58）；确认库内已收录相关内容，换 Embedding 模型后需重新校准该阈值。 |
 
 ## 文档与许可
 

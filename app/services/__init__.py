@@ -1,1 +1,1 @@
-"""应用服务层：SourceService / IngestionService / RetrievalService / QAService。"""
+"""应用服务层：来源、入库、任务、检索和维护。"""

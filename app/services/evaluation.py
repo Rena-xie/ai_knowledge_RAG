@@ -1,4 +1,4 @@
-"""检索与问答评测（见《项目开发说明_v1.md》11.4）。"""
+"""检索评测。"""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.services.qa import QAService
 from app.services.retrieval import RetrievalService
 
 RECALL_K = 5
@@ -17,7 +16,7 @@ RECALL_K = 5
 
 @dataclass(frozen=True)
 class EvalQuestion:
-    """一道评测题；无标注（relevant_child_ids 为空）表示应回答「证据不足」。"""
+    """一道评测题；无标注表示检索应返回空证据。"""
 
     id: str
     category: str
@@ -34,9 +33,7 @@ class QuestionResult:
     retrieved: tuple[int, ...]
     recall_at_5: float | None
     hit_at_5: bool | None
-    answer_type: str
-    citations_validated: bool
-    citation_count: int
+    empty_evidence: bool
     max_similarity: float = 0.0
     precision_at_5: float | None = None
     mrr_at_10: float | None = None
@@ -51,8 +48,7 @@ class EvalReport:
     total: int
     recall_at_5: float | None
     hit_rate_at_5: float | None
-    citation_validity: float | None
-    insufficient_accuracy: float | None
+    empty_evidence_accuracy: float | None
     precision_at_5: float | None
     mrr_at_10: float | None
     ndcg_at_10: float | None
@@ -64,8 +60,7 @@ class EvalReport:
             "total": self.total,
             "recall_at_5": self.recall_at_5,
             "hit_rate_at_5": self.hit_rate_at_5,
-            "citation_validity": self.citation_validity,
-            "insufficient_accuracy": self.insufficient_accuracy,
+            "empty_evidence_accuracy": self.empty_evidence_accuracy,
             "precision_at_5": self.precision_at_5,
             "mrr_at_10": self.mrr_at_10,
             "ndcg_at_10": self.ndcg_at_10,
@@ -77,9 +72,7 @@ class EvalReport:
                     "retrieved": list(result.retrieved),
                     "recall_at_5": result.recall_at_5,
                     "hit_at_5": result.hit_at_5,
-                    "answer_type": result.answer_type,
-                    "citations_validated": result.citations_validated,
-                    "citation_count": result.citation_count,
+                    "empty_evidence": result.empty_evidence,
                     "max_similarity": result.max_similarity,
                     "precision_at_5": result.precision_at_5,
                     "mrr_at_10": result.mrr_at_10,
@@ -92,23 +85,19 @@ class EvalReport:
 
 
 class EvaluationRunner:
-    """按题库执行检索与问答，输出 Recall@5、引用有效率与无答案识别率。"""
+    """按题库执行检索，输出召回、排序和空证据指标。"""
 
     def __init__(
         self,
         *,
         retrieval_service: RetrievalService,
-        qa_service: QAService,
     ) -> None:
         self._retrieval_service = retrieval_service
-        self._qa_service = qa_service
 
     def run(self, questions: Sequence[EvalQuestion]) -> EvalReport:
         results: list[QuestionResult] = []
         for item in questions:
             retrieval = self._retrieval_service.search(item.question)
-            # 复用同一次检索结果，避免每题重复召回与重复向量化（见 11.4）
-            answer = self._qa_service.answer(item.question, retrieval=retrieval)
             retrieved = tuple(retrieval.fused_ids[:10])
             top_k = retrieved[:RECALL_K]
             recall: float | None = None
@@ -133,9 +122,7 @@ class EvaluationRunner:
                     retrieved=retrieved,
                     recall_at_5=recall,
                     hit_at_5=hit,
-                    answer_type=answer.answer_type,
-                    citations_validated=answer.citations_validated,
-                    citation_count=len(answer.citations),
+                    empty_evidence=not retrieved,
                     max_similarity=retrieval.max_similarity,
                     precision_at_5=precision,
                     mrr_at_10=mrr,
@@ -153,9 +140,6 @@ class EvaluationRunner:
             result for result, item in zip(results, questions, strict=True)
             if item.relevant_child_ids
         ]
-        answered = [
-            result for result in results if result.answer_type == "answered"
-        ]
         unlabeled = [
             result for result, item in zip(results, questions, strict=True)
             if not item.relevant_child_ids
@@ -170,12 +154,7 @@ class EvaluationRunner:
             for result in labeled
             if result.hit_at_5 is not None
         ]
-        validated = [result for result in answered if result.citations_validated]
-        insufficient = [
-            result
-            for result in unlabeled
-            if result.answer_type == "insufficient_evidence"
-        ]
+        empty_evidence = [result for result in unlabeled if result.empty_evidence]
         precisions = [
             result.precision_at_5
             for result in labeled
@@ -195,8 +174,7 @@ class EvaluationRunner:
             total=len(results),
             recall_at_5=_average(recall_scores),
             hit_rate_at_5=_average(hit_scores),
-            citation_validity=_ratio(len(validated), len(answered)),
-            insufficient_accuracy=_ratio(len(insufficient), len(unlabeled)),
+            empty_evidence_accuracy=_ratio(len(empty_evidence), len(unlabeled)),
             precision_at_5=(
                 round(sum(precisions) / len(precisions), 4) if precisions else None
             ),
@@ -267,11 +245,11 @@ def _category_metrics(
             "hit_rate_at_5": _ratio(hits, len(labeled)),
             "mrr_at_10": _average([result.mrr_at_10 for result in labeled]),
             "ndcg_at_10": _average([result.ndcg_at_10 for result in labeled]),
-            "insufficient_accuracy": _ratio(
+            "empty_evidence_accuracy": _ratio(
                 sum(
                     1
                     for result in unlabeled
-                    if result.answer_type == "insufficient_evidence"
+                    if result.empty_evidence
                 ),
                 len(unlabeled),
             ),

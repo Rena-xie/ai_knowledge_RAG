@@ -182,10 +182,10 @@ def dump_children(container: Container, target: Path) -> int:
 def run_eval(
     argv: Sequence[str] | None = None, *, runner: EvaluationRunner | None = None
 ) -> int:
-    """执行评测并写出结果 JSON。"""
+    """执行检索评测并写出结果 JSON。"""
 
     parser = argparse.ArgumentParser(
-        prog="run_eval", description="运行检索与问答评测"
+        prog="run_eval", description="运行检索评测"
     )
     parser.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
     parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
@@ -228,7 +228,6 @@ def run_eval(
             assert container is not None
             active_runner = EvaluationRunner(
                 retrieval_service=container.retrieval_service,
-                qa_service=container.qa_service,
             )
         report = active_runner.run(questions)
         payload = {
@@ -266,8 +265,7 @@ def run_eval(
                 "precision_at_5",
                 "mrr_at_10",
                 "ndcg_at_10",
-                "citation_validity",
-                "insufficient_accuracy",
+                "empty_evidence_accuracy",
             )
         }
         summary["output"] = str(output)

@@ -70,33 +70,6 @@ class SearchResponse(BaseModel):
     elapsed_ms: float
 
 
-class CitationResponse(BaseModel):
-    """通过校验的引用。"""
-
-    source_id: int
-    child_id: int
-    title: str | None
-    url: str
-    heading_path: str
-
-
-class UsageResponse(BaseModel):
-    """Token 用量。"""
-
-    prompt_tokens: int
-    completion_tokens: int
-
-
-class QueryResponse(BaseModel):
-    """问答响应。"""
-
-    answer: str
-    answer_type: str
-    citations: list[CitationResponse]
-    citations_validated: bool
-    usage: UsageResponse
-
-
 class IngestionCreateRequest(BaseModel):
     """创建异步入库任务。"""
 

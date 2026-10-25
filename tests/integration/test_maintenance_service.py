@@ -57,8 +57,6 @@ def build_settings(tmp_path: Path) -> Settings:
         _env_file=None,
         embedding_api_base="https://example.invalid/v1",
         embedding_api_key="test",
-        llm_api_base="https://example.invalid/v1",
-        llm_api_key="test",
         sqlite_path=tmp_path / "app.db",
         chroma_path=tmp_path / "chroma",
     )

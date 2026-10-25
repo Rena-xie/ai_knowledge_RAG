@@ -9,7 +9,6 @@ from app.services.evaluation import (
     EvaluationRunner,
     load_questions,
 )
-from app.services.qa import AnswerCitation, AnswerResult
 from app.services.retrieval import RetrievalResult
 
 
@@ -30,46 +29,11 @@ class FakeRetrieval:
         )
 
 
-class FakeQA:
-    def __init__(self, mapping: dict[str, AnswerResult]) -> None:
-        self._mapping = mapping
-        self.retrievals: list[RetrievalResult | None] = []
-
-    def answer(
-        self, question: str, *, retrieval: RetrievalResult | None = None
-    ) -> AnswerResult:
-        self.retrievals.append(retrieval)
-        return self._mapping[question]
-
-
-def answer(
-    text: str, *, kind: str = "answered", validated: bool = True
-) -> AnswerResult:
-    citations = (
-        (AnswerCitation(1, 2, "标题", "https://example.com/a", "H"),)
-        if kind == "answered"
-        else ()
-    )
-    return AnswerResult(
-        text=text,
-        answer_type=kind,
-        citations=citations,
-        citations_validated=validated,
-    )
-
-
 def build_runner() -> EvaluationRunner:
     retrieval = FakeRetrieval(
         {"命中题": (7, 8, 9), "未命中题": (1, 2, 3), "无答案题": ()}
     )
-    qa = FakeQA(
-        {
-            "命中题": answer("答案 [S1:C2]"),
-            "未命中题": answer("答案 [S1:C2]", validated=False),
-            "无答案题": answer("知识库缺少相关证据。", kind="insufficient_evidence"),
-        }
-    )
-    return EvaluationRunner(retrieval_service=retrieval, qa_service=qa)
+    return EvaluationRunner(retrieval_service=retrieval)
 
 
 def test_reports_metrics() -> None:
@@ -84,8 +48,7 @@ def test_reports_metrics() -> None:
     assert report.total == 3
     assert report.recall_at_5 == pytest.approx(0.5)
     assert report.hit_rate_at_5 == pytest.approx(0.5)
-    assert report.citation_validity == pytest.approx(0.5)
-    assert report.insufficient_accuracy == pytest.approx(1.0)
+    assert report.empty_evidence_accuracy == pytest.approx(1.0)
     assert [result.recall_at_5 for result in report.results] == [1.0, 0.0, None]
     assert [result.hit_at_5 for result in report.results] == [True, False, None]
     assert report.precision_at_5 == pytest.approx(0.1)
@@ -106,8 +69,7 @@ def test_recall_at_5_uses_all_relevant_chunks() -> None:
     """多相关块只命中一个时，HitRate 为 1，但标准 Recall 应小于 1。"""
 
     retrieval = FakeRetrieval({"多答案题": (7, 8, 9)})
-    qa = FakeQA({"多答案题": answer("答案 [S1:C2]")})
-    runner = EvaluationRunner(retrieval_service=retrieval, qa_service=qa)
+    runner = EvaluationRunner(retrieval_service=retrieval)
 
     report = runner.run(
         [EvalQuestion("q1", "跨章节", "多答案题", (8, 10))]
@@ -143,24 +105,29 @@ def test_metrics_are_none_without_denominator() -> None:
 
     assert report.recall_at_5 is None
     assert report.hit_rate_at_5 is None
-    assert report.citation_validity is None
     assert report.precision_at_5 is None
-    assert report.insufficient_accuracy == 1.0
+    assert report.empty_evidence_accuracy == 1.0
 
 
-def test_runner_reuses_one_retrieval_per_question() -> None:
-    """每题只检索一次，并把结果复用给问答（见 11.4）。"""
+def test_runner_retrieves_once_per_question() -> None:
+    """每题只调用一次检索服务。"""
 
     retrieval = FakeRetrieval({"命中题": (7, 8, 9)})
-    qa = FakeQA({"命中题": answer("答案 [S1:C2]")})
-    runner = EvaluationRunner(retrieval_service=retrieval, qa_service=qa)
+    runner = EvaluationRunner(retrieval_service=retrieval)
 
     report = runner.run([EvalQuestion("q1", "专有名词", "命中题", (7,))])
 
     assert retrieval.calls == ["命中题"]
-    assert qa.retrievals[0] is not None
-    assert qa.retrievals[0].fused_ids == (7, 8, 9)
     assert report.results[0].max_similarity == pytest.approx(0.7)
+
+
+def test_non_empty_evidence_fails_no_answer_metric() -> None:
+    retrieval = FakeRetrieval({"无答案题": (1, 2)})
+    runner = EvaluationRunner(retrieval_service=retrieval)
+
+    report = runner.run([EvalQuestion("q1", "无答案", "无答案题")])
+
+    assert report.empty_evidence_accuracy == 0.0
 
 
 def test_load_questions_reads_json(tmp_path: Path) -> None:

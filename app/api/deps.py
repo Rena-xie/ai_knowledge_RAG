@@ -7,12 +7,10 @@ from app.infra.db import create_db_engine, create_session_factory, init_db
 from app.infra.embedding import EmbeddingClient
 from app.infra.fetcher import Fetcher
 from app.infra.fts import FtsIndex
-from app.infra.llm import LLMClient
 from app.infra.rerank import RerankClient
 from app.infra.vector import VectorIndex
 from app.services.ingestion import IngestionService
 from app.services.ingestion_jobs import IngestionWorker, JobService
-from app.services.qa import QAService
 from app.services.retrieval import RetrievalService
 from app.services.source import SourceService
 
@@ -26,7 +24,6 @@ class Container:
         *,
         fetcher: Fetcher | None = None,
         embedder: EmbeddingClient | None = None,
-        llm_client: LLMClient | None = None,
         rerank_client: RerankClient | None = None,
     ) -> None:
         self.settings = settings
@@ -60,17 +57,6 @@ class Container:
                 max_retries=settings.embed_max_retries,
             )
         )
-        self.llm_client = (
-            llm_client
-            if llm_client is not None
-            else LLMClient(
-                api_base=settings.llm_api_base,
-                api_key=settings.llm_api_key,
-                model=settings.llm_model,
-                timeout_s=settings.llm_timeout_s,
-                max_retries=settings.llm_max_retries,
-            )
-        )
         self.source_service = SourceService(
             session_factory=self.session_factory,
             vector_index=self.vector_index,
@@ -101,9 +87,6 @@ class Container:
             settings=settings,
             rerank_client=rerank_client,
         )
-        self.qa_service = QAService(
-            retrieval_service=self.retrieval_service, llm_client=self.llm_client
-        )
 
     def start_background_tasks(self) -> None:
         """启动入库 Worker，并恢复上次未完成的 queued job。"""
@@ -114,7 +97,7 @@ class Container:
     def close(self) -> None:
         self.ingestion_worker.stop(timeout_s=self.settings.ingest_timeout_s + 5)
         self.retrieval_service.close()
-        for client in (self.fetcher, self.embedder, self.llm_client):
+        for client in (self.fetcher, self.embedder):
             close = getattr(client, "close", None)
             if callable(close):
                 close()

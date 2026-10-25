@@ -9,12 +9,14 @@
   无答案）、标注的相关 `child_id` 集合。同义改写（`q01` / `q01a` / `q01b`）共享同一组
   相关 Child，**不构成独立样本**；汇总时应同时报告独立问题口径。
 - `results/`：每次运行的结果 JSON，含标准 Recall@5、HitRate@5、Precision@5、
-  MRR@10、nDCG@10、引用有效率、无答案识别率与每题最高 Dense 相似度
+  MRR@10、nDCG@10、空证据准确率与每题最高 Dense 相似度
   （用于校准 `MIN_DENSE_SIMILARITY`）。
 
 公开结果：
 
-- `2026-10-20-v2-128q-literal.json`：当前实现的 128 题 rerank 开结果。
+- `2026-10-20-v2-128q-literal.json`：历史 128 题 rerank 开结果。旧文件中的
+  `answer_type`、`citations_validated` 和 `citation_count` 来自已移除的 RAG
+  生成链路，只用于历史溯源，不参与当前检索验收。
 - `2026-10-20-v2-128q-literal-grouped.json`：按 84 个独立问题重新聚合的结果。
 
 历史基线和消融结果保留在本地，不纳入公开仓库；需要时可以重新运行评测生成。

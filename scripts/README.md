@@ -23,7 +23,7 @@
   uv run python scripts/backup.py --target backups
   ```
 
-- `run_eval.py`：在评测库上运行检索与问答评测，见 `tests/evals/README.md`。
+- `run_eval.py`：在评测库上运行纯检索评测，见 `tests/evals/README.md`。
 
   ```powershell
   uv run python scripts/run_eval.py --workdir E:/ai_kb_data/eval-kb-v3 --output tests/evals/results/latest.json

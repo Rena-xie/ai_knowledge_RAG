@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import threading
 from collections.abc import Iterator, Sequence
 from functools import partial
@@ -16,7 +15,6 @@ from app.api.deps import Container
 from app.core.settings import get_settings
 from app.infra.db import KnowledgeSource
 from app.infra.fetcher import Fetcher
-from app.infra.llm import LLMResult
 from app.main import create_app
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -54,22 +52,6 @@ class FakeEmbedder:
         return None
 
 
-class EchoCitationLLM:
-    """把提示词中的第一个引用标识回显为答案。"""
-
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def complete(self, *, system_prompt: str, user_prompt: str) -> LLMResult:
-        self.calls += 1
-        match = re.search(r"\[S\d+:C\d+\]", user_prompt)
-        text = f"答案 {match.group(0)}" if match else "知识库缺少相关证据。"
-        return LLMResult(text=text, prompt_tokens=7, completion_tokens=3)
-
-    def close(self) -> None:
-        return None
-
-
 @pytest.fixture
 def client() -> Iterator[TestClient]:
     settings = get_settings()
@@ -85,7 +67,6 @@ def client() -> Iterator[TestClient]:
         settings,
         fetcher=fetcher,
         embedder=FakeEmbedder(),
-        llm_client=EchoCitationLLM(),
     )
     app = create_app()
     app.state.container = container
@@ -93,7 +74,7 @@ def client() -> Iterator[TestClient]:
         yield test_client
 
 
-def test_full_pipeline_ingest_search_and_answer(
+def test_full_pipeline_ingest_and_search(
     client: TestClient, fixture_site: str
 ) -> None:
     page_url = f"{fixture_site}/{FIXTURE_PAGE}"
@@ -116,17 +97,10 @@ def test_full_pipeline_ingest_search_and_answer(
     assert search_body["bm25_ids"]
     assert search_body["fused_ids"]
     assert search_body["evidences"]
-
-    answered = client.post("/api/v1/query", json={"question": "字符串如何表示？"})
-    answer_body = answered.json()
-    assert answered.status_code == 200
-    assert answer_body["answer_type"] == "answered"
-    assert answer_body["citations_validated"] is True
-    assert answer_body["citations"]
-    citation = answer_body["citations"][0]
-    assert citation["url"] == page_url
-    assert citation["heading_path"]
-    assert citation["title"] == "数据类型和变量"
+    evidence = search_body["evidences"][0]
+    assert evidence["url"] == page_url
+    assert evidence["heading_path"]
+    assert evidence["title"] == "数据类型和变量"
 
 
 def test_pipeline_reports_fetch_error_for_missing_page(
@@ -171,7 +145,6 @@ def test_startup_recovers_interrupted_sources() -> None:
             validator=lambda _address: True,
         ),
         embedder=FakeEmbedder(),
-        llm_client=EchoCitationLLM(),
     )
     with container.session_factory() as session:
         session.add(

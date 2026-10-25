@@ -12,8 +12,6 @@ def build_settings() -> Settings:
         _env_file=None,
         embedding_api_base="https://example.invalid/v1",
         embedding_api_key="test-key",
-        llm_api_base="https://example.invalid/v1",
-        llm_api_key="test-key",
     )
 
 

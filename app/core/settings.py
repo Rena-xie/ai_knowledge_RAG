@@ -33,11 +33,6 @@ class Settings(BaseSettings):
     embedding_api_key: str
     embedding_model: str = "BAAI/bge-m3"
 
-    # LLM（必填）
-    llm_api_base: str
-    llm_api_key: str
-    llm_model: str = "deepseek-flash"
-
     # 检索
     dense_top_k: int = 20
     bm25_top_k: int = 20
@@ -72,9 +67,6 @@ class Settings(BaseSettings):
     # 外部调用
     embed_timeout_s: int = 12
     embed_max_retries: int = 1
-    llm_timeout_s: int = 30
-    llm_max_retries: int = 1
-
     # 入库
     ingest_timeout_s: int = 60
     ingest_lock_timeout_s: int = 30

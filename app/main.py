@@ -13,7 +13,6 @@ from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
 from app.api.ingestions import router as ingestions_router
 from app.api.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
-from app.api.query import router as query_router
 from app.api.search import router as search_router
 from app.api.sources import router as sources_router
 from app.api.stats import router as stats_router
@@ -65,7 +64,6 @@ def create_app() -> FastAPI:
     app.include_router(sources_router)
     app.include_router(ingestions_router)
     app.include_router(search_router)
-    app.include_router(query_router)
     app.include_router(stats_router)
     return app
 

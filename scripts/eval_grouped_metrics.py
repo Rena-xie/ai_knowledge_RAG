@@ -90,11 +90,11 @@ def group_results(
                 ),
                 "mrr_at_10": _average([item["mrr_at_10"] for item in labeled]),
                 "ndcg_at_10": _average([item["ndcg_at_10"] for item in labeled]),
-                "insufficient_accuracy": _ratio(
+                "empty_evidence_accuracy": _ratio(
                     sum(
                         1
                         for item in unlabeled
-                        if item["answer_type"] == "insufficient_evidence"
+                        if item.get("empty_evidence", not item.get("retrieved", []))
                     ),
                     len(unlabeled),
                 ),
@@ -118,8 +118,8 @@ def group_results(
             ),
             "mrr_at_10": _average([item["mrr_at_10"] for item in labeled]),
             "ndcg_at_10": _average([item["ndcg_at_10"] for item in labeled]),
-            "insufficient_accuracy": _average(
-                [item["insufficient_accuracy"] for item in unlabeled]
+            "empty_evidence_accuracy": _average(
+                [item["empty_evidence_accuracy"] for item in unlabeled]
             ),
         }
 
@@ -149,11 +149,11 @@ def group_results(
         "ndcg_at_10": _average(
             [item["ndcg_at_10"] for item in labeled_variants]
         ),
-        "insufficient_accuracy": _ratio(
+        "empty_evidence_accuracy": _ratio(
             sum(
                 1
                 for item in unlabeled_variants
-                if item["answer_type"] == "insufficient_evidence"
+                if item.get("empty_evidence", not item.get("retrieved", []))
             ),
             len(unlabeled_variants),
         ),
@@ -169,8 +169,8 @@ def group_results(
         ),
         "mrr_at_10": _average([item["mrr_at_10"] for item in labeled_groups]),
         "ndcg_at_10": _average([item["ndcg_at_10"] for item in labeled_groups]),
-        "insufficient_accuracy": _average(
-            [item["insufficient_accuracy"] for item in unlabeled_groups]
+        "empty_evidence_accuracy": _average(
+            [item["empty_evidence_accuracy"] for item in unlabeled_groups]
         ),
     }
     return {

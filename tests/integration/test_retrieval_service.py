@@ -66,8 +66,6 @@ def build_settings(**overrides) -> Settings:
     values: dict[str, object] = {
         "embedding_api_base": "https://example.invalid/v1",
         "embedding_api_key": "test",
-        "llm_api_base": "https://example.invalid/v1",
-        "llm_api_key": "test",
         "dense_top_k": 5,
         "bm25_top_k": 5,
         "final_top_k": 3,

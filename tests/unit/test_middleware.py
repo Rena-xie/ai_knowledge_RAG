@@ -17,8 +17,6 @@ def _settings() -> Settings:
     return Settings(
         embedding_api_base="https://example.invalid/v1",
         embedding_api_key="test-key",
-        llm_api_base="https://example.invalid/v1",
-        llm_api_key="test-key",
         max_request_bytes=LIMIT,
     )
 

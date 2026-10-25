@@ -96,8 +96,6 @@ def build_settings(**overrides) -> Settings:
     values: dict[str, object] = {
         "embedding_api_base": "https://example.invalid/v1",
         "embedding_api_key": "test",
-        "llm_api_base": "https://example.invalid/v1",
-        "llm_api_key": "test",
     }
     values.update(overrides)
     return Settings(_env_file=None, **values)
