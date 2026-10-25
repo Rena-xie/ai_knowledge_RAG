@@ -21,6 +21,8 @@ class SourceResponse(BaseModel):
     canonical_url: str
     title: str | None
     status: str
+    identity_status: str
+    identity_verified_at: str | None
     error_code: str | None
     error_message: str | None
     created_at: str
@@ -102,9 +104,13 @@ class IngestionItemResponse(BaseModel):
 
     url: str
     canonical_url: str
+    final_url: str | None = None
     status: str
     source_id: int | None = None
+    duplicate_of_source_id: int | None = None
+    changed: bool | None = None
     title: str | None = None
+    skip_reason: str | None = None
     error_code: str | None = None
     error_message: str | None = None
     started_at: str | None = None

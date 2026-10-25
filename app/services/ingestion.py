@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import threading
 import time
@@ -17,7 +16,10 @@ from app.core.errors import AppError, ErrorCode
 from app.core.settings import Settings
 from app.domain.chunking import ParentChunk as DomainParent
 from app.domain.chunking import chunk_markdown
+from app.domain.fingerprint import ContentFingerprint, compute_content_fingerprint
+from app.domain.source_links import parse_related_document_links
 from app.domain.state import SourceStatus
+from app.domain.url import normalize_url
 from app.infra.db import ChildChunk, KnowledgeSource, ParentChunk
 from app.infra.embedding import EmbeddingClient, EmbeddingError
 from app.infra.fetcher import Fetcher, FetchError
@@ -25,6 +27,12 @@ from app.infra.fts import FtsIndex
 from app.infra.parser import ParsedDocument, ParseError, parse_html
 from app.infra.vector import VectorIndex
 from app.services.source import SourceService
+from app.services.source_identity import (
+    IdentityConfirmation,
+    IdentityPlanRequest,
+    IdentityResolution,
+    SourceIdentityService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +48,21 @@ class IngestResult:
     triggered: bool
     child_count: int
     changed: bool = True
+    final_url: str | None = None
+    duplicate_of_source_id: int | None = None
+    skip_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class DocumentPipelineRequest:
+    """单个已解析文档进入持久化阶段的输入。"""
+
+    source_id: int
+    document: ParsedDocument
+    deadline: float
+    fingerprint: ContentFingerprint
+    resolution: IdentityResolution
+    confirmation: IdentityConfirmation
 
 
 class IngestionService:
@@ -55,6 +78,7 @@ class IngestionService:
         fts_index: FtsIndex,
         vector_index: VectorIndex,
         settings: Settings,
+        identity_service: SourceIdentityService | None = None,
         parser: Callable[..., ParsedDocument] = parse_html,
         clock: Callable[[], str] = utc_now_iso,
         chunker_version: str = DEFAULT_CHUNKER_VERSION,
@@ -66,6 +90,10 @@ class IngestionService:
         self._fts_index = fts_index
         self._vector_index = vector_index
         self._settings = settings
+        self._identity_service = identity_service or SourceIdentityService(
+            session_factory=session_factory,
+            clock=clock,
+        )
         self._parser = parser
         self._clock = clock
         self._chunker_version = chunker_version
@@ -94,6 +122,8 @@ class IngestionService:
                 status=str(submit.source.status),
                 triggered=False,
                 child_count=self._child_count(source_id),
+                final_url=submit.source.canonical_url,
+                changed=False,
             )
         if not self._lock.acquire(timeout=self._settings.ingest_lock_timeout_s):
             self._mark_ingest_busy(source_id)
@@ -161,23 +191,57 @@ class IngestionService:
         try:
             fetched = self._fetcher.fetch(url)
             self._check_deadline(deadline)
+            related_links = parse_related_document_links(
+                fetched.html, final_url=fetched.url
+            )
+            plan_request = IdentityPlanRequest(
+                source_id=source_id,
+                final_url=fetched.url,
+                redirect_urls=fetched.redirect_urls,
+                related_links=related_links,
+            )
+            resolution = self._identity_service.plan_final_url(
+                plan_request
+            )
+            if resolution.duplicate_of_source_id is not None:
+                raise AppError(
+                    ErrorCode.SOURCE_IDENTITY_CONFLICT,
+                    "刷新后的最终 URL 已属于其他来源",
+                )
             document = self._parser(fetched.html, url=fetched.url)
-            new_hash = hashlib.sha256(
-                document.markdown.encode("utf-8")
-            ).hexdigest()
+            fingerprint = compute_content_fingerprint(document.markdown)
+            confirmation = IdentityConfirmation(
+                source_id=source_id,
+                submitted_url=url,
+                final_url=resolution.canonical_url,
+                redirect_urls=fetched.redirect_urls,
+                related_links=related_links,
+            )
             current = self._source_service.get(source_id)
             if current is None:
                 raise AppError(
                     ErrorCode.NOT_FOUND, f"来源不存在: {source_id}"
                 )
-            if current.content_hash == new_hash:
-                self._source_service.mark_checked(source_id)
+            if (
+                current.fingerprint_version == fingerprint.version
+                and current.content_hash == fingerprint.value
+            ):
+                self._finish_unchanged_refresh(confirmation)
                 return IngestResult(
                     source_id=source_id,
                     status=SourceStatus.COMPLETED.value,
                     triggered=True,
                     child_count=self._child_count(source_id),
                     changed=False,
+                    final_url=resolution.canonical_url,
+                )
+            duplicate_id = self._identity_service.find_content_duplicate(
+                fingerprint, exclude_source_id=source_id
+            )
+            if duplicate_id is not None:
+                raise AppError(
+                    ErrorCode.SOURCE_IDENTITY_CONFLICT,
+                    "刷新后的正文已属于其他来源",
                 )
             parents = chunk_markdown(
                 document.markdown,
@@ -241,7 +305,15 @@ class IngestionService:
                             ],
                         )
                         self._apply_source_success(
-                            session, source_id, document, new_hash
+                            session,
+                            DocumentPipelineRequest(
+                                source_id=source_id,
+                                document=document,
+                                deadline=deadline,
+                                fingerprint=fingerprint,
+                                resolution=resolution,
+                                confirmation=confirmation,
+                            ),
                         )
                         session.commit()
                     except Exception:
@@ -259,6 +331,7 @@ class IngestionService:
                 triggered=True,
                 child_count=len(new_child_ids),
                 changed=True,
+                final_url=resolution.canonical_url,
             )
         except AppError:
             raise
@@ -273,10 +346,68 @@ class IngestionService:
             fetched = self._fetcher.fetch(url)
             self._log_stage(source_id, "fetch", stage)
             self._check_deadline(deadline)
+            related_links = parse_related_document_links(
+                fetched.html, final_url=fetched.url
+            )
+            resolution = self._identity_service.plan_final_url(
+                IdentityPlanRequest(
+                    source_id=source_id,
+                    final_url=fetched.url,
+                    redirect_urls=fetched.redirect_urls,
+                    related_links=related_links,
+                )
+            )
             stage = time.perf_counter()
             document = self._parser(fetched.html, url=fetched.url)
             self._log_stage(source_id, "parse", stage)
-            return self._run_document_pipeline(source_id, document, deadline)
+            fingerprint = compute_content_fingerprint(document.markdown)
+            if resolution.duplicate_of_source_id is not None:
+                if not self._identity_service.matches_existing_content(
+                    resolution.duplicate_of_source_id,
+                    fingerprint,
+                ):
+                    raise AppError(
+                        ErrorCode.SOURCE_IDENTITY_CONFLICT,
+                        "最终 URL 已属于其他来源，但正文不同",
+                    )
+                self._identity_service.attach_submitted_alias(
+                    resolution.duplicate_of_source_id,
+                    url=url,
+                )
+                self._source_service.discard_unindexed_source(source_id)
+                return self._duplicate_result(
+                    resolution.duplicate_of_source_id,
+                    reason="duplicate_url",
+                )
+            duplicate_id = self._identity_service.find_content_duplicate(
+                fingerprint, exclude_source_id=source_id
+            )
+            if duplicate_id is not None:
+                self._merge_duplicate_source(
+                    source_id=source_id,
+                    duplicate_id=duplicate_id,
+                    submitted_url=url,
+                )
+                return self._duplicate_result(
+                    duplicate_id,
+                    reason="duplicate_content",
+                )
+            return self._run_document_pipeline(
+                DocumentPipelineRequest(
+                    source_id=source_id,
+                    document=document,
+                    deadline=deadline,
+                    fingerprint=fingerprint,
+                    resolution=resolution,
+                    confirmation=IdentityConfirmation(
+                        source_id=source_id,
+                        submitted_url=url,
+                        final_url=resolution.canonical_url,
+                        redirect_urls=fetched.redirect_urls,
+                        related_links=related_links,
+                    ),
+                )
+            )
         except Exception as error:
             code = _error_code(error)
             self._compensate(source_id)
@@ -305,6 +436,8 @@ class IngestionService:
                 status=str(submit.source.status),
                 triggered=False,
                 child_count=self._child_count(source_id),
+                final_url=submit.source.canonical_url,
+                changed=False,
             )
         if not self._lock.acquire(timeout=self._settings.ingest_lock_timeout_s):
             self._mark_ingest_busy(source_id)
@@ -322,11 +455,42 @@ class IngestionService:
                 title=title or _markdown_title(text),
                 markdown=text,
             )
+            resolution = self._identity_service.plan_final_url(
+                IdentityPlanRequest(
+                    source_id=source_id,
+                    final_url=normalize_url(url),
+                )
+            )
+            fingerprint = compute_content_fingerprint(document.markdown)
+            duplicate_id = self._identity_service.find_content_duplicate(
+                fingerprint, exclude_source_id=source_id
+            )
+            if duplicate_id is not None:
+                self._merge_duplicate_source(
+                    source_id=source_id,
+                    duplicate_id=duplicate_id,
+                    submitted_url=url,
+                )
+                return self._duplicate_result(
+                    duplicate_id,
+                    reason="duplicate_content",
+                )
             deadline = (
                 time.monotonic() + self._settings.ingest_timeout_s
             )
             return self._run_document_pipeline(
-                source_id, document, deadline
+                DocumentPipelineRequest(
+                    source_id=source_id,
+                    document=document,
+                    deadline=deadline,
+                    fingerprint=fingerprint,
+                    resolution=resolution,
+                    confirmation=IdentityConfirmation(
+                        source_id=source_id,
+                        submitted_url=url,
+                        final_url=resolution.canonical_url,
+                    ),
+                )
             )
         except Exception as error:
             code = _error_code(error)
@@ -343,10 +507,11 @@ class IngestionService:
 
     def _run_document_pipeline(
         self,
-        source_id: int,
-        document: ParsedDocument,
-        deadline: float,
+        request: DocumentPipelineRequest,
     ) -> IngestResult:
+        source_id = request.source_id
+        document = request.document
+        deadline = request.deadline
         stage = time.perf_counter()
         parents = chunk_markdown(
             document.markdown,
@@ -384,12 +549,13 @@ class IngestionService:
         )
         self._log_stage(source_id, "index", stage)
         self._check_deadline(deadline)
-        self._finish(source_id, document)
+        self._finish(request)
         return IngestResult(
             source_id=source_id,
             status=SourceStatus.COMPLETED.value,
             triggered=True,
             child_count=len(child_ids),
+            final_url=request.resolution.canonical_url,
         )
 
     def _persist_chunks(
@@ -453,32 +619,86 @@ class IngestionService:
                 embedding_texts.append(child.embedding_text)
         return child_ids, embedding_texts
 
-    def _finish(self, source_id: int, document: ParsedDocument) -> None:
+    def _finish(
+        self,
+        request: DocumentPipelineRequest,
+    ) -> None:
         with self._session_factory() as session:
-            self._apply_source_success(
-                session,
-                source_id,
-                document,
-                hashlib.sha256(
-                    document.markdown.encode("utf-8")
-                ).hexdigest(),
-            )
+            self._apply_source_success(session, request)
             session.commit()
+
+    def _finish_unchanged_refresh(
+        self,
+        confirmation: IdentityConfirmation,
+    ) -> None:
+        with self._session_factory() as session:
+            source = session.get(KnowledgeSource, confirmation.source_id)
+            if source is None:
+                raise AppError(
+                    ErrorCode.NOT_FOUND,
+                    f"来源不存在: {confirmation.source_id}",
+                )
+            now = self._clock()
+            source.last_checked_at = now
+            source.updated_at = now
+            self._identity_service.confirm_final_url(session, confirmation)
+            session.commit()
+
+    def _merge_duplicate_source(
+        self,
+        *,
+        source_id: int,
+        duplicate_id: int,
+        submitted_url: str,
+    ) -> None:
+        self._identity_service.merge_aliases(
+            from_source_id=source_id,
+            to_source_id=duplicate_id,
+        )
+        self._identity_service.attach_submitted_alias(
+            duplicate_id,
+            url=submitted_url,
+        )
+        self._source_service.discard_unindexed_source(source_id)
+
+    def _duplicate_result(
+        self,
+        source_id: int,
+        *,
+        reason: str,
+    ) -> IngestResult:
+        source = self._source_service.get(source_id)
+        if source is None:
+            raise AppError(
+                ErrorCode.NOT_FOUND, f"重复来源不存在: {source_id}"
+            )
+        return IngestResult(
+            source_id=source.id,
+            status=source.status,
+            triggered=False,
+            child_count=self._child_count(source.id),
+            changed=False,
+            final_url=source.canonical_url,
+            duplicate_of_source_id=source.id,
+            skip_reason=reason,
+        )
 
     def _apply_source_success(
         self,
         session: Session,
-        source_id: int,
-        document: ParsedDocument,
-        content_hash: str,
+        request: DocumentPipelineRequest,
     ) -> None:
-        source = session.get(KnowledgeSource, source_id)
+        source = session.get(KnowledgeSource, request.source_id)
         if source is None:
-            raise AppError(ErrorCode.NOT_FOUND, f"来源不存在: {source_id}")
+            raise AppError(
+                ErrorCode.NOT_FOUND,
+                f"来源不存在: {request.source_id}",
+            )
         now = self._clock()
         source.status = SourceStatus.COMPLETED.value
-        source.title = document.title
-        source.content_hash = content_hash
+        source.title = request.document.title
+        source.content_hash = request.fingerprint.value
+        source.fingerprint_version = request.fingerprint.version
         source.chunker_version = self._chunker_version
         source.embedding_model = self._settings.embedding_model
         source.error_code = None
@@ -486,6 +706,7 @@ class IngestionService:
         source.processed_at = now
         source.last_checked_at = now
         source.updated_at = now
+        self._identity_service.confirm_final_url(session, request.confirmation)
 
     def _delete_child_indexes(self, child_ids: Sequence[int]) -> None:
         if not child_ids:

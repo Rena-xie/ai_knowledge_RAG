@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +31,9 @@ from sqlalchemy.orm import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_BUSY_TIMEOUT_MS = 5000
-SCHEMA_VERSION = "3"
+SCHEMA_VERSION = "4"
+DEFAULT_COLLECTION_ID = "default"
+DEFAULT_COLLECTION_NAME = "默认知识库"
 
 
 class Base(DeclarativeBase):
@@ -52,10 +55,103 @@ class KnowledgeSource(Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     chunker_version: Mapped[str | None] = mapped_column(Text)
     embedding_model: Mapped[str | None] = mapped_column(Text)
+    fingerprint_version: Mapped[str | None] = mapped_column(Text)
+    language_code: Mapped[str | None] = mapped_column(Text)
+    identity_status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="pending"
+    )
+    identity_verified_at: Mapped[str | None] = mapped_column(Text)
     last_checked_at: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[str] = mapped_column(Text, nullable=False)
     processed_at: Mapped[str | None] = mapped_column(Text)
+
+
+class SourceAlias(Base):
+    """来源的提交、重定向和历史 URL 别名。"""
+
+    __tablename__ = "source_aliases"
+    __table_args__ = (
+        Index("ix_source_aliases_source_id", "source_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_sources.id", ondelete="CASCADE"), nullable=False
+    )
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_url: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    alias_type: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class KnowledgeCollection(Base):
+    """知识集合。"""
+
+    __tablename__ = "knowledge_collections"
+    __table_args__ = (
+        Index(
+            "uq_knowledge_collections_default",
+            "is_default",
+            unique=True,
+            sqlite_where=text("is_default = 1"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class KnowledgeCollectionSource(Base):
+    """知识集合与来源的多对多关联。"""
+
+    __tablename__ = "knowledge_collection_sources"
+    __table_args__ = (
+        Index("ix_collection_sources_source_id", "source_id"),
+    )
+
+    collection_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_collections.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_sources.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    added_at: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class Tag(Base):
+    """全局来源标签。"""
+
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class SourceTag(Base):
+    """来源与标签的多对多关联。"""
+
+    __tablename__ = "source_tags"
+    __table_args__ = (
+        Index("ix_source_tags_tag_id", "tag_id"),
+    )
+
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_sources.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    tag_id: Mapped[int] = mapped_column(
+        ForeignKey("tags.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    added_at: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class IngestionJob(Base):
@@ -106,7 +202,13 @@ class IngestionJobItem(Base):
     source_id: Mapped[int | None] = mapped_column(
         ForeignKey("knowledge_sources.id", ondelete="SET NULL")
     )
+    final_url: Mapped[str | None] = mapped_column(Text)
+    duplicate_of_source_id: Mapped[int | None] = mapped_column(
+        ForeignKey("knowledge_sources.id", ondelete="SET NULL")
+    )
+    changed: Mapped[bool | None] = mapped_column(Boolean)
     title: Mapped[str | None] = mapped_column(Text)
+    skip_reason: Mapped[str | None] = mapped_column(Text)
     error_code: Mapped[str | None] = mapped_column(Text)
     error_message: Mapped[str | None] = mapped_column(Text)
     attempts: Mapped[int] = mapped_column(nullable=False, default=0)
@@ -115,6 +217,21 @@ class IngestionJobItem(Base):
     finished_at: Mapped[str | None] = mapped_column(Text)
 
     job: Mapped[IngestionJob] = relationship(back_populates="items")
+
+
+class JobIdempotencyKey(Base):
+    """按 24 小时时间桶登记 Job 幂等键。"""
+
+    __tablename__ = "job_idempotency_keys"
+    __table_args__ = (
+        Index("ix_job_idempotency_keys_job_id", "job_id"),
+    )
+
+    key: Mapped[str] = mapped_column(Text, primary_key=True)
+    bucket_start: Mapped[str] = mapped_column(Text, primary_key=True)
+    job_id: Mapped[str] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="CASCADE"), nullable=False
+    )
 
 
 class ParentChunk(Base):
@@ -204,11 +321,16 @@ def init_db(engine: Engine) -> None:
 
 
 def _migrate_schema(engine: Engine) -> None:
-    """把 v1 数据库升级到 v2；未知版本保持原值，避免误降级。"""
+    """把旧数据库升级到 v4；未知版本保持原值，避免误降级。"""
 
     table_names = set(inspect(engine).get_table_names())
     if "knowledge_sources" in table_names:
         _ensure_last_checked_at(engine)
+        _ensure_source_identity_columns(engine)
+        _ensure_content_hash_index(engine)
+    if "ingestion_job_items" in table_names:
+        _ensure_force_refresh(engine)
+        _ensure_job_item_identity_columns(engine)
     if "index_meta" not in table_names:
         return
 
@@ -217,8 +339,9 @@ def _migrate_schema(engine: Engine) -> None:
         if meta is None:
             session.add(IndexMeta(key="schema_version", value=SCHEMA_VERSION))
             session.commit()
-            return
-        version = meta.value
+            version = SCHEMA_VERSION
+        else:
+            version = meta.value
 
     if version == "1":
         with Session(engine) as session:
@@ -232,6 +355,13 @@ def _migrate_schema(engine: Engine) -> None:
         with Session(engine) as session:
             meta = session.get(IndexMeta, "schema_version")
             if meta is not None:
+                meta.value = "3"
+                session.commit()
+        version = "3"
+    if version == "3":
+        with Session(engine) as session:
+            meta = session.get(IndexMeta, "schema_version")
+            if meta is not None:
                 meta.value = SCHEMA_VERSION
                 session.commit()
         version = SCHEMA_VERSION
@@ -240,6 +370,10 @@ def _migrate_schema(engine: Engine) -> None:
             "未知 schema_version，保持原值",
             extra={"schema_version": version},
         )
+        return
+    _ensure_default_collection(engine)
+    _backfill_legacy_source_aliases(engine)
+    _backfill_idempotency_keys(engine)
 
 
 def _ensure_last_checked_at(engine: Engine) -> None:
@@ -266,3 +400,110 @@ def _ensure_force_refresh(engine: Engine) -> None:
                     "ADD COLUMN force_refresh BOOLEAN NOT NULL DEFAULT 0"
                 )
             )
+
+
+def _ensure_source_identity_columns(engine: Engine) -> None:
+    columns = {
+        column["name"] for column in inspect(engine).get_columns("knowledge_sources")
+    }
+    additions = {
+        "fingerprint_version": "TEXT",
+        "language_code": "TEXT",
+        "identity_status": "TEXT NOT NULL DEFAULT 'legacy_unverified'",
+        "identity_verified_at": "TEXT",
+    }
+    with engine.begin() as connection:
+        for name, definition in additions.items():
+            if name not in columns:
+                connection.execute(
+                    text(
+                        f"ALTER TABLE knowledge_sources "
+                        f"ADD COLUMN {name} {definition}"
+                    )
+                )
+
+
+def _ensure_job_item_identity_columns(engine: Engine) -> None:
+    columns = {
+        column["name"]
+        for column in inspect(engine).get_columns("ingestion_job_items")
+    }
+    additions = {
+        "final_url": "TEXT",
+        "duplicate_of_source_id": (
+            "INTEGER REFERENCES knowledge_sources(id) ON DELETE SET NULL"
+        ),
+        "changed": "BOOLEAN",
+        "skip_reason": "TEXT",
+    }
+    with engine.begin() as connection:
+        for name, definition in additions.items():
+            if name not in columns:
+                connection.execute(
+                    text(
+                        f"ALTER TABLE ingestion_job_items "
+                        f"ADD COLUMN {name} {definition}"
+                    )
+                )
+
+
+def _ensure_content_hash_index(engine: Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_knowledge_sources_content_hash "
+                "ON knowledge_sources(content_hash)"
+            )
+        )
+
+
+def _ensure_default_collection(engine: Engine) -> None:
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT OR IGNORE INTO knowledge_collections "
+                "(id, name, description, is_default, created_at, updated_at) "
+                "VALUES (:id, :name, :description, 1, :now, :now)"
+            ),
+            {
+                "id": DEFAULT_COLLECTION_ID,
+                "name": DEFAULT_COLLECTION_NAME,
+                "description": "未指定集合的来源",
+                "now": now,
+            },
+        )
+        connection.execute(
+            text(
+                "INSERT OR IGNORE INTO knowledge_collection_sources "
+                "(collection_id, source_id, added_at) "
+                "SELECT :collection_id, id, :now FROM knowledge_sources"
+            ),
+            {"collection_id": DEFAULT_COLLECTION_ID, "now": now},
+        )
+
+
+def _backfill_legacy_source_aliases(engine: Engine) -> None:
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT OR IGNORE INTO source_aliases "
+                "(source_id, url, normalized_url, alias_type, created_at) "
+                "SELECT id, canonical_url, canonical_url, "
+                "'legacy_provisional', :now FROM knowledge_sources"
+            ),
+            {"now": now},
+        )
+
+
+def _backfill_idempotency_keys(engine: Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT OR IGNORE INTO job_idempotency_keys "
+                "(key, bucket_start, job_id) "
+                "SELECT idempotency_key, substr(created_at, 1, 10), id "
+                "FROM ingestion_jobs WHERE idempotency_key IS NOT NULL"
+            )
+        )

@@ -12,6 +12,7 @@ from app.infra.db import (
     ChildChunk,
     KnowledgeSource,
     ParentChunk,
+    SourceAlias,
     create_db_engine,
     create_session_factory,
     init_db,
@@ -80,16 +81,41 @@ class FakeEmbedder:
 class MutableFetcher:
     """可切换 HTML 的抓取替身，用于刷新测试。"""
 
-    def __init__(self, html: str) -> None:
+    def __init__(self, html: str, *, final_url: str | None = None) -> None:
         self.html = html
+        self.final_url = final_url
         self.calls = 0
 
     def fetch(self, url: str) -> FetchResult:
         self.calls += 1
-        return FetchResult(url=url, content_type="text/html", html=self.html)
+        final_url = self.final_url or url
+        redirect_urls = (url,) if final_url != url else ()
+        return FetchResult(
+            url=final_url,
+            content_type="text/html",
+            html=self.html,
+            redirect_urls=redirect_urls,
+        )
 
     def close(self) -> None:
         return None
+
+
+class MappingFetcher:
+    """按提交 URL 返回不同最终 URL 的抓取替身。"""
+
+    def __init__(self, responses: dict[str, tuple[str, str]]) -> None:
+        self._responses = responses
+
+    def fetch(self, url: str) -> FetchResult:
+        final_url, html = self._responses[url]
+        redirect_urls = (url,) if final_url != url else ()
+        return FetchResult(
+            url=final_url,
+            content_type="text/html",
+            html=html,
+            redirect_urls=redirect_urls,
+        )
 
 
 def build_settings(**overrides) -> Settings:
@@ -187,8 +213,191 @@ def test_second_ingest_of_completed_source_is_noop(
     second = service.ingest("https://example.com/a")
 
     assert second.triggered is False
+    assert second.changed is False
     assert second.source_id == first.source_id
     assert count_rows(env, ChildChunk) == first.child_count
+
+
+def test_redirect_sets_final_url_and_aliases(
+    env: dict[str, object],
+) -> None:
+    fetcher = MappingFetcher(
+        {
+            "https://example.com/start": (
+                "https://example.com/article",
+                ARTICLE,
+            )
+        }
+    )
+    service = build_service(env, fetcher=fetcher)
+
+    result = service.ingest("https://example.com/start")
+
+    assert result.final_url == "https://example.com/article"
+    source = env["source_service"].get(result.source_id)
+    assert source.canonical_url == "https://example.com/article"
+    assert source.identity_status == "confirmed"
+    session_factory = env["session_factory"]
+    with session_factory() as session:
+        aliases = list(
+            session.query(SourceAlias).filter_by(source_id=result.source_id).all()
+        )
+        assert {
+            alias.normalized_url: alias.alias_type for alias in aliases
+        } == {
+            "https://example.com/start": "submitted",
+            "https://example.com/article": "final",
+        }
+
+
+def test_duplicate_final_url_reuses_existing_source(
+    env: dict[str, object],
+) -> None:
+    fetcher = FakeFetcher(
+        FetchResult(
+            url="https://example.com/article",
+            content_type="text/html",
+            html=ARTICLE,
+        )
+    )
+    service = build_service(env, fetcher=fetcher)
+    first = service.ingest("https://example.com/first")
+
+    second = service.ingest("https://example.com/second")
+
+    assert second.triggered is False
+    assert second.source_id == first.source_id
+    assert second.duplicate_of_source_id == first.source_id
+    assert second.skip_reason == "duplicate_url"
+    assert count_rows(env, KnowledgeSource) == 1
+    assert count_rows(env, ChildChunk) == first.child_count
+
+
+def test_duplicate_content_reuses_existing_source(
+    env: dict[str, object],
+) -> None:
+    fetcher = MappingFetcher(
+        {
+            "https://example.com/a": ("https://example.com/a", ARTICLE),
+            "https://example.com/b": ("https://example.com/b", ARTICLE),
+        }
+    )
+    service = build_service(env, fetcher=fetcher)
+    first = service.ingest("https://example.com/a")
+
+    second = service.ingest("https://example.com/b")
+
+    assert second.triggered is False
+    assert second.source_id == first.source_id
+    assert second.duplicate_of_source_id == first.source_id
+    assert second.skip_reason == "duplicate_content"
+    assert count_rows(env, KnowledgeSource) == 1
+    assert count_rows(env, ChildChunk) == first.child_count
+
+
+def test_amp_print_and_mirror_content_is_deduplicated(
+    env: dict[str, object],
+) -> None:
+    fetcher = MappingFetcher(
+        {
+            "https://example.com/article": (
+                "https://example.com/article",
+                ARTICLE,
+            ),
+            "https://example.com/article/amp": (
+                "https://example.com/article/amp",
+                ARTICLE,
+            ),
+            "https://example.com/article/print": (
+                "https://example.com/article/print",
+                ARTICLE,
+            ),
+            "https://mirror.example/article": (
+                "https://mirror.example/article",
+                ARTICLE,
+            ),
+        }
+    )
+    service = build_service(env, fetcher=fetcher)
+    first = service.ingest("https://example.com/article")
+
+    duplicates = [
+        service.ingest("https://example.com/article/amp"),
+        service.ingest("https://example.com/article/print"),
+        service.ingest("https://mirror.example/article"),
+    ]
+
+    assert all(item.source_id == first.source_id for item in duplicates)
+    assert all(item.skip_reason == "duplicate_content" for item in duplicates)
+    assert count_rows(env, KnowledgeSource) == 1
+    assert count_rows(env, ChildChunk) == first.child_count
+
+
+def test_same_final_url_with_different_content_is_conflict(
+    env: dict[str, object],
+) -> None:
+    changed_html = ARTICLE.replace(
+        "BM25 是一种稀疏检索算法", "完整不同的正文内容"
+    )
+    fetcher = MappingFetcher(
+        {
+            "https://example.com/a": (
+                "https://example.com/article",
+                ARTICLE,
+            ),
+            "https://example.com/b": (
+                "https://example.com/article",
+                changed_html,
+            ),
+        }
+    )
+    service = build_service(env, fetcher=fetcher)
+    first = service.ingest("https://example.com/a")
+
+    with pytest.raises(AppError) as excinfo:
+        service.ingest("https://example.com/b")
+
+    assert excinfo.value.code == ErrorCode.SOURCE_IDENTITY_CONFLICT
+    existing = env["source_service"].get(first.source_id)
+    assert existing.status == "completed"
+    assert count_rows(env, KnowledgeSource) == 2
+    assert count_rows(env, ChildChunk) == first.child_count
+
+
+def test_refresh_content_conflict_preserves_old_source(
+    env: dict[str, object],
+) -> None:
+    changed_html = ARTICLE.replace(
+        "BM25 是一种稀疏检索算法", "完整不同的正文内容"
+    )
+    initial_fetcher = MappingFetcher(
+        {
+            "https://example.com/a": ("https://example.com/a", ARTICLE),
+            "https://example.com/b": ("https://example.com/b", changed_html),
+        }
+    )
+    service = build_service(env, fetcher=initial_fetcher)
+    first = service.ingest("https://example.com/a")
+    service.ingest("https://example.com/b")
+    old_texts = child_texts(env, first.source_id)
+
+    refresh_service = build_service(
+        env,
+        fetcher=MappingFetcher(
+            {
+                "https://example.com/a": (
+                    "https://example.com/a",
+                    changed_html,
+                )
+            }
+        ),
+    )
+    with pytest.raises(AppError) as excinfo:
+        refresh_service.ingest("https://example.com/a", force_refresh=True)
+
+    assert excinfo.value.code == ErrorCode.SOURCE_IDENTITY_CONFLICT
+    assert child_texts(env, first.source_id) == old_texts
+    assert env["source_service"].get(first.source_id).status == "completed"
 
 
 def test_fetch_failure_marks_failed_and_cleans_up(
@@ -489,6 +698,25 @@ def test_refresh_unchanged_content_skips_embedding(
     source = env["source_service"].get(first.source_id)
     assert source.status == "completed"
     assert source.last_checked_at is not None
+
+
+def test_refresh_updates_final_url_without_changing_source_id(
+    env: dict[str, object],
+) -> None:
+    fetcher = MutableFetcher(ARTICLE)
+    service = build_service(env, fetcher=fetcher)
+    first = service.ingest("https://example.com/a")
+
+    fetcher.final_url = "https://cdn.example.com/article"
+    refreshed = service.ingest(
+        "https://example.com/a", force_refresh=True
+    )
+
+    assert refreshed.source_id == first.source_id
+    assert refreshed.final_url == "https://cdn.example.com/article"
+    source = env["source_service"].get(first.source_id)
+    assert source.canonical_url == "https://cdn.example.com/article"
+    assert source.identity_status == "confirmed"
 
 
 def test_refresh_index_failure_rolls_back_old_data(

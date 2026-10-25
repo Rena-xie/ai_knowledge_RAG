@@ -14,7 +14,7 @@ from app.core.clock import utc_now_iso
 from app.core.errors import AppError, ErrorCode
 from app.domain.state import SourceStatus, allows_direct_delete, can_transition
 from app.domain.url import InvalidUrlError, normalize_url
-from app.infra.db import ChildChunk, KnowledgeSource, ParentChunk
+from app.infra.db import ChildChunk, KnowledgeSource, ParentChunk, SourceAlias
 from app.infra.fts import FtsIndex
 from app.infra.vector import VectorIndex
 
@@ -61,6 +61,7 @@ class SourceService:
                 url=url,
                 canonical_url=canonical,
                 status=SourceStatus.PENDING.value,
+                identity_status="pending",
                 created_at=now,
                 updated_at=now,
             )
@@ -79,9 +80,17 @@ class SourceService:
 
     @staticmethod
     def _find_by_canonical(session: Session, canonical: str) -> KnowledgeSource | None:
-        return session.scalar(
+        direct = session.scalar(
             select(KnowledgeSource).where(KnowledgeSource.canonical_url == canonical)
         )
+        if direct is not None:
+            return direct
+        alias = session.scalar(
+            select(SourceAlias).where(SourceAlias.normalized_url == canonical)
+        )
+        if alias is None:
+            return None
+        return session.get(KnowledgeSource, alias.source_id)
 
     @staticmethod
     def _existing_result(source: KnowledgeSource) -> SubmitResult:
@@ -93,6 +102,28 @@ class SourceService:
     def get(self, source_id: int) -> KnowledgeSource | None:
         with self._session_factory() as session:
             return session.get(KnowledgeSource, source_id)
+
+    def discard_unindexed_source(self, source_id: int) -> None:
+        """删除去重命中后被合并的临时来源。"""
+
+        with self._session_factory() as session:
+            source = session.get(KnowledgeSource, source_id)
+            if source is None:
+                return
+            child_count = int(
+                session.scalar(
+                    select(func.count())
+                    .select_from(ChildChunk)
+                    .where(ChildChunk.source_id == source_id)
+                )
+                or 0
+            )
+            if child_count:
+                raise RuntimeError(
+                    f"refusing to discard indexed source {source_id}"
+                )
+            session.delete(source)
+            session.commit()
 
     def list_sources(
         self, *, page: int, size: int

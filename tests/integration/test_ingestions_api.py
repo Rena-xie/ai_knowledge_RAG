@@ -31,7 +31,12 @@ class FakeFetcher:
     def fetch(self, url: str) -> FetchResult:
         if "fail" in url:
             raise FetchError(ErrorCode.FETCH_TIMEOUT, "抓取超时")
-        return FetchResult(url=url, content_type="text/html", html=ARTICLE)
+        html = ARTICLE
+        if "duplicate" not in url and url.endswith("/b"):
+            html = ARTICLE.replace("BM25 指南", "向量检索指南").replace(
+                "BM25 是一种稀疏检索算法", "向量检索使用稠密向量"
+            )
+        return FetchResult(url=url, content_type="text/html", html=html)
 
     def close(self) -> None:
         return None
@@ -100,6 +105,9 @@ def test_batch_ingestion_completes(client: TestClient) -> None:
     ]
     assert all(item["source_id"] is not None for item in job["items"])
     assert job["items"][0]["canonical_url"] == "https://example.com/a"
+    assert job["items"][0]["final_url"] == "https://example.com/a"
+    assert job["items"][0]["changed"] is True
+    assert job["items"][0]["duplicate_of_source_id"] is None
 
     sources = client.get("/api/v1/sources").json()
     assert sources["total"] == 2
@@ -120,6 +128,29 @@ def test_duplicate_url_is_skipped(client: TestClient) -> None:
     assert body["accepted"] == 0
     assert body["skipped"][0]["reason"] == "already_indexed"
     assert body["skipped"][0]["source_id"] is not None
+
+
+def test_duplicate_content_is_skipped_in_job(client: TestClient) -> None:
+    created = client.post(
+        "/api/v1/ingestions",
+        json={
+            "urls": [
+                "https://example.com/duplicate-a",
+                "https://example.com/duplicate-b",
+            ]
+        },
+    ).json()
+
+    job = wait_for_job(client, created["job_id"])
+
+    assert job["status"] == "completed"
+    first, second = job["items"]
+    assert first["status"] == "completed"
+    assert second["status"] == "skipped"
+    assert second["skip_reason"] == "duplicate_content"
+    assert second["source_id"] == first["source_id"]
+    assert second["duplicate_of_source_id"] == first["source_id"]
+    assert client.get("/api/v1/sources").json()["total"] == 1
 
 
 def test_partial_failure_and_retry(client: TestClient) -> None:
@@ -236,6 +267,8 @@ def test_force_refresh_and_source_refresh_endpoint(
     assert source_refresh.json()["accepted"] == 1
     source_job = wait_for_job(client, source_refresh.json()["job_id"])
     assert source_job["status"] == "completed"
+    assert source_job["items"][0]["changed"] is False
+    assert source_job["items"][0]["final_url"] == "https://example.com/a"
 
 
 def test_ingestion_stats(client: TestClient) -> None:

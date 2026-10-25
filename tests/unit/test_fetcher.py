@@ -122,6 +122,7 @@ def test_follows_redirect_to_public_target() -> None:
 
     assert result.url == "https://93.184.216.34/final"
     assert result.html == "<p>final</p>"
+    assert result.redirect_urls == (PUBLIC_URL,)
 
 
 def test_rejects_too_many_redirects() -> None:

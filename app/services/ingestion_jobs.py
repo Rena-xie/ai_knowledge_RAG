@@ -86,7 +86,11 @@ class JobItemView:
     canonical_url: str
     status: str
     source_id: int | None
+    final_url: str | None
+    duplicate_of_source_id: int | None
+    changed: bool | None
     title: str | None
+    skip_reason: str | None
     error_code: str | None
     error_message: str | None
     started_at: str | None
@@ -218,6 +222,7 @@ class JobService:
                         now=now,
                         source_id=source.id,
                         title=source.title,
+                        skip_reason="already_indexed",
                     )
                 )
                 skipped.append(
@@ -239,6 +244,7 @@ class JobService:
                         now=now,
                         source_id=source.id,
                         title=source.title,
+                        skip_reason="already_processing",
                     )
                 )
                 skipped.append(
@@ -628,10 +634,12 @@ class JobService:
                 item_id=item_id,
                 status=ItemStatus.COMPLETED,
                 source_id=result.source_id,
+                final_url=result.final_url,
+                changed=result.changed,
             )
             return
 
-        reason = (
+        reason = result.skip_reason or (
             "already_indexed"
             if result.status == SourceStatus.COMPLETED.value
             else "already_processing"
@@ -647,6 +655,9 @@ class JobService:
             status=ItemStatus.SKIPPED,
             source_id=result.source_id,
             skip_reason=reason,
+            final_url=result.final_url,
+            duplicate_of_source_id=result.duplicate_of_source_id,
+            changed=False,
         )
 
     def _finish_item(
@@ -656,6 +667,9 @@ class JobService:
         item_id: int,
         status: ItemStatus,
         source_id: int | None = None,
+        final_url: str | None = None,
+        duplicate_of_source_id: int | None = None,
+        changed: bool | None = None,
         error_code: ErrorCode | None = None,
         error_message: str | None = None,
         skip_reason: str | None = None,
@@ -671,13 +685,20 @@ class JobService:
                 source = session.get(KnowledgeSource, source_id)
                 if source is not None:
                     item.title = source.title
+            if final_url is not None:
+                item.final_url = final_url
+            if duplicate_of_source_id is not None:
+                item.duplicate_of_source_id = duplicate_of_source_id
+            if changed is not None:
+                item.changed = changed
             if error_code is not None:
                 item.error_code = error_code.value
             if error_message is not None:
                 item.error_message = error_message
             if skip_reason is not None:
+                item.skip_reason = skip_reason
                 item.error_code = None
-                item.error_message = skip_reason
+                item.error_message = None
             session.commit()
 
     def _refresh_job(self, job_id: str) -> None:
@@ -824,6 +845,7 @@ class JobService:
         title: str | None = None,
         error_code: ErrorCode | None = None,
         error_message: str | None = None,
+        skip_reason: str | None = None,
         finished: bool = False,
         force_refresh: bool = False,
     ) -> IngestionJobItem:
@@ -837,6 +859,7 @@ class JobService:
             title=title,
             error_code=error_code.value if error_code else None,
             error_message=error_message,
+            skip_reason=skip_reason,
             created_at=now,
             finished_at=now if finished else None,
         )
@@ -864,7 +887,11 @@ class JobService:
                     canonical_url=row.canonical_url,
                     status=row.status,
                     source_id=row.source_id,
+                    final_url=row.final_url,
+                    duplicate_of_source_id=row.duplicate_of_source_id,
+                    changed=row.changed,
                     title=row.title,
+                    skip_reason=row.skip_reason,
                     error_code=row.error_code,
                     error_message=row.error_message,
                     started_at=row.started_at,

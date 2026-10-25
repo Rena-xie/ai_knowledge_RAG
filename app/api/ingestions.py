@@ -144,9 +144,13 @@ def _item_response(item: JobItemView) -> IngestionItemResponse:
     return IngestionItemResponse(
         url=item.url,
         canonical_url=item.canonical_url,
+        final_url=item.final_url,
         status=item.status,
         source_id=item.source_id,
+        duplicate_of_source_id=item.duplicate_of_source_id,
+        changed=item.changed,
         title=item.title,
+        skip_reason=item.skip_reason,
         error_code=item.error_code,
         error_message=item.error_message,
         started_at=item.started_at,

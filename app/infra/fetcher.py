@@ -46,6 +46,7 @@ class FetchResult:
     url: str
     content_type: str
     html: str
+    redirect_urls: tuple[str, ...] = ()
 
 
 def resolve_host(host: str) -> list[str]:
@@ -163,6 +164,7 @@ class Fetcher:
 
     def _fetch_once(self, url: str) -> FetchResult:
         current = url
+        redirect_urls: list[str] = []
         for hop in range(self._max_redirects + 1):
             host = urlsplit(current).netloc.lower()
             self._ensure_robots_allowed(current, host)
@@ -178,7 +180,9 @@ class Fetcher:
                         if response.status_code in REDIRECT_STATUSES:
                             redirect_to = self._redirect_target(response, hop)
                             break
-                        return self._read_response(response)
+                        return self._read_response(
+                            response, redirect_urls=tuple(redirect_urls)
+                        )
                 except httpx.TimeoutException:
                     last_error = FetchError(
                         ErrorCode.FETCH_TIMEOUT, f"抓取超时: {current}"
@@ -192,6 +196,7 @@ class Fetcher:
                         ErrorCode.FETCH_HTTP_ERROR, f"抓取失败: {current}"
                     ) from error
             if redirect_to is not None:
+                redirect_urls.append(current)
                 current = redirect_to
                 continue
             raise last_error or FetchError(ErrorCode.FETCH_HTTP_ERROR, "抓取失败")
@@ -278,7 +283,12 @@ class Fetcher:
             raise FetchError(ErrorCode.FETCH_HTTP_ERROR, "重定向次数超过上限")
         return str(response.url.join(location))
 
-    def _read_response(self, response: httpx.Response) -> FetchResult:
+    def _read_response(
+        self,
+        response: httpx.Response,
+        *,
+        redirect_urls: tuple[str, ...] = (),
+    ) -> FetchResult:
         if response.status_code >= 400:
             raise FetchError(
                 ErrorCode.FETCH_HTTP_ERROR,
@@ -301,4 +311,5 @@ class Fetcher:
             url=str(response.url),
             content_type=content_type,
             html=body.decode(response.encoding or "utf-8", errors="replace"),
+            redirect_urls=redirect_urls,
         )

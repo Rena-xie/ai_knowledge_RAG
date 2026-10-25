@@ -9,14 +9,14 @@
 **Description:** 增加来源别名、集合、标签、来源身份元数据和幂等时间桶的 schema 基础，把现有来源关联到默认集合，不访问外网、不合并历史重复来源。
 
 **Acceptance criteria:**
-- [ ] v3 数据库副本可幂等升级到 schema v4。
-- [ ] 既有来源全部关联默认集合，关系数据和 Child 数量不丢失。
-- [ ] 未执行历史重复来源删除、合并或重新抓取。
-- [ ] 幂等时间桶表完成迁移，旧 Job 可按 `created_at` 回填。
+- [x] v3 数据库副本可幂等升级到 schema v4。
+- [x] 既有来源全部关联默认集合，关系数据和 Child 数量不丢失。
+- [x] 未执行历史重复来源删除、合并或重新抓取。
+- [x] 幂等时间桶表完成迁移，旧 Job 可按 `created_at` 回填。
 
 **Verification:**
-- [ ] `uv run pytest tests/unit/test_db.py -q`
-- [ ] 使用 v3 数据库副本检查表、外键、唯一索引和行数。
+- [x] `pytest tests/unit/test_db.py -q`
+- [x] 使用 v3 数据库副本检查表、外键、唯一索引和行数。
 
 **Dependencies:** None
 
@@ -31,13 +31,13 @@
 **Description:** 以重定向后的最终 URL 更新来源长期身份，保留提交 URL、重定向 URL 和 HTML canonical/AMP 线索为别名；Job Item 暴露最终 URL。
 
 **Acceptance criteria:**
-- [ ] 新来源 `canonical_url` 是最终规范化 URL，提交 URL 仍可追溯。
-- [ ] 同一来源刷新时最终 URL 改变会追加别名并保持 `source_id`。
-- [ ] Job Item 包含 `final_url`，不存在别名时回退到初始 canonical URL。
+- [x] 新来源 `canonical_url` 是最终规范化 URL，提交 URL 仍可追溯。
+- [x] 同一来源刷新时最终 URL 改变会追加别名并保持 `source_id`。
+- [x] Job Item 包含 `final_url`，不存在别名时回退到初始 canonical URL。
 
 **Verification:**
-- [ ] `uv run pytest tests/integration/test_ingestion_service.py tests/integration/test_ingestions_api.py -q`
-- [ ] 使用重定向夹具验证提交 URL、最终 URL 和别名。
+- [x] `pytest tests/integration/test_ingestion_service.py tests/integration/test_ingestions_api.py -q`
+- [x] 使用重定向夹具验证提交 URL、最终 URL 和别名。
 
 **Dependencies:** Task 1
 
@@ -55,14 +55,14 @@
 **Description:** 对规范化正文计算版本化 SHA-256，跨 URL 复用相同正文的既有来源；刷新与另一来源冲突时保留旧数据并失败。
 
 **Acceptance criteria:**
-- [ ] 新 URL 与既有 completed 来源正文完全相同时，不新增来源、Child、FTS 或 Chroma 数据。
-- [ ] 重复 Item 标记 skipped / `duplicate_content` 并返回既有 `source_id`。
-- [ ] 刷新正文与其他来源重复时失败，原来源数据和索引保持可用。
-- [ ] 升级前历史重复来源不自动合并。
+- [x] 新 URL 与既有 completed 来源正文完全相同时，不新增来源、Child、FTS 或 Chroma 数据。
+- [x] 重复 Item 标记 skipped / `duplicate_content` 并返回既有 `source_id`。
+- [x] 刷新正文与其他来源重复时失败，原来源数据和索引保持可用。
+- [x] 升级前历史重复来源不自动合并。
 
 **Verification:**
-- [ ] `uv run pytest tests/unit/test_fingerprint.py tests/integration/test_ingestion_service.py tests/integration/test_ingestions_api.py -q`
-- [ ] AMP、打印版、镜像和普通 URL 使用同一内容夹具验证只保留一套索引。
+- [x] `pytest tests/unit/test_fingerprint.py tests/integration/test_ingestion_service.py tests/integration/test_ingestions_api.py -q`
+- [x] AMP、打印版、镜像和普通 URL 使用同一内容夹具验证只保留一套索引。
 
 **Dependencies:** Task 2
 
@@ -77,9 +77,9 @@
 
 ## Checkpoint A：数据身份
 
-- [ ] schema v4 迁移通过。
-- [ ] 最终 URL 和别名可追溯。
-- [ ] 新入库与刷新去重正确，历史数据保持原状。
+- [x] schema v4 迁移通过。
+- [x] 最终 URL 和别名可追溯。
+- [x] 新入库与刷新去重正确，历史数据保持原状。
 - [ ] 人工审查后进入内容质量阶段。
 
 ## Phase 2：内容质量与双语

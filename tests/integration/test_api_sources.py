@@ -26,7 +26,12 @@ class FakeFetcher:
         self._html = html
 
     def fetch(self, url: str) -> FetchResult:
-        return FetchResult(url=url, content_type="text/html", html=self._html)
+        html = self._html
+        if url.endswith("/b"):
+            html = self._html.replace("BM25 指南", "向量检索指南").replace(
+                "BM25 是一种稀疏检索算法", "向量检索使用稠密向量"
+            )
+        return FetchResult(url=url, content_type="text/html", html=html)
 
     def close(self) -> None:
         return None
