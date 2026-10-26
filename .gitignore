@@ -28,6 +28,9 @@ Thumbs.db
 # 本地 Agent 配置（不入库）
 AGENTS.md
 .claude/
+.agents/
+_bmad/
+_bmad-output/
 
 # 内部质量评价结果（保留本地，不公开）
 项目质量评价结果_*.md
