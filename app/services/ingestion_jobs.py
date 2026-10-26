@@ -18,10 +18,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.clock import utc_now_iso
+from app.core.context import bind_job_id
 from app.core.errors import AppError, ErrorCode
 from app.core.settings import Settings
 from app.domain.state import SourceStatus
-from app.domain.url import InvalidUrlError, normalize_url
+from app.domain.url import InvalidUrlError, normalize_url, redact_url_credentials
 from app.infra.db import IngestionJob, IngestionJobItem, KnowledgeSource
 from app.services.ingestion import IngestionService
 
@@ -602,9 +603,10 @@ class JobService:
         force_refresh: bool,
     ) -> None:
         try:
-            result = self._ingestion_service.ingest(
-                url, force_refresh=force_refresh
-            )
+            with bind_job_id(job_id):
+                result = self._ingestion_service.ingest(
+                    url, force_refresh=force_refresh
+                )
         except AppError as error:
             self._finish_item(
                 job_id=job_id,
@@ -615,8 +617,9 @@ class JobService:
             )
             return
         except Exception as error:  # noqa: BLE001 - 逐条失败隔离
-            logger.exception(
-                "job item 执行异常",
+            logger.error(
+                "job item 执行异常: %s",
+                type(error).__name__,
                 extra={"job_id": job_id, "item_id": item_id},
             )
             self._finish_item(
@@ -624,7 +627,7 @@ class JobService:
                 item_id=item_id,
                 status=ItemStatus.FAILED,
                 error_code=ErrorCode.INTERNAL_ERROR,
-                error_message=str(error),
+                error_message="服务内部错误",
             )
             return
 
@@ -759,7 +762,7 @@ class JobService:
                 canonical = normalize_url(text)
             except InvalidUrlError as error:
                 seen_invalid.add(text)
-                invalid.append((text, str(error)))
+                invalid.append((redact_url_credentials(text), str(error)))
                 continue
             if canonical in seen:
                 continue

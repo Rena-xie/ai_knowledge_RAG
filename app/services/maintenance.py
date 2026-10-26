@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.clock import utc_now_iso
+from app.core.context import bind_source_id
 from app.core.settings import Settings
 from app.infra.db import ChildChunk, IndexMeta
 from app.infra.embedding import EmbeddingClient
@@ -123,7 +124,10 @@ class MaintenanceService:
         self._vector_index.delete_by_source(source_id)
         self._fts_index.delete_many([child_id for child_id, _s, _t in rows])
         if rows:
-            vectors = self._embedder.embed([text for _child, _source, text in rows])
+            with bind_source_id(source_id):
+                vectors = self._embedder.embed(
+                    [text for _child, _source, text in rows]
+                )
             for child_id, _source, text in rows:
                 self._fts_index.upsert(child_id, text)
             self._vector_index.upsert(

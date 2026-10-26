@@ -9,6 +9,9 @@
   问题、类别（专有名词 / 语义改写 / 代码查询 / 跨章节 / 无答案）、语言和标注的相关
   `child_id`。同义及跨语言问法（`q01` / `q01a` / `q01b` / `q01e`）共享同一组
   相关 Child，**不构成本质不同的独立问题**。
+- `child_parent_map.json`：冻结评测库导出的 Child→Parent 映射，覆盖全部题目标注
+  以及当前 raw result 中的全部最终返回 Child。当前为 475 条兼容超集；映射缺失或
+  重复键必须报错。
 - `questions_language_slices.json`：可从主题库复现的 20 条英文/混合语言切片。
 - `results/`：每次运行的结果 JSON，含标准 Recall@5、HitRate@5、Precision@5、
   MRR@10、nDCG@10、空证据准确率与每题最高 Dense 相似度
@@ -22,26 +25,37 @@
 - `2026-10-20-v2-128q-literal-grouped.json`：按 84 个独立问题重新聚合的结果。
 - `2026-10-26-v2-evidence-148q.json`：在冻结 `eval-kb-v3` 上重新执行 148 个
   语言问法的原始结果。所有指标使用最终返回的 `evidences`；`fused_ids` 仅作诊断。
-- `2026-10-26-v2-evidence-148q-baseline.json`：当前有效 Core RAG baseline。
-  整体使用 84 个独立问题，同时给出 Chinese/English/Mixed 语言切片。
+- `2026-10-26-v2-evidence-148q-baseline.json`：历史 Child 口径 baseline，保留用于
+  诊断和前后对照，不再作为当前正式验收口径。
+- `2026-10-26-v2-parent-evidence-148q-baseline.json`：重复来源清理前生成的
+  Parent 过渡 baseline，标记为 `provisional`，仅保留历史对照。
+- `2026-10-26-v2-clean-r2-148q.json`：清理 source `119` 后重新执行的原始结果。
+- `2026-10-26-v2-parent-clean-r2-148q.json`：正式 Parent-level 干净基线，状态为
+  `accepted`。
 - `*-fused-candidates.invalid.json`：早期错误口径结果，仅保留用于故障溯源。
   这些文件使用内部融合候选计算指标，不能用于验收。
 
-当前有效 baseline（84 个独立问题）：
+当前正式 Parent baseline（84 个独立问题）：
 
 | Recall@5 | Precision@5 | HitRate@5 | MRR@10 | nDCG@10 | 空证据准确率 |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 0.6323 | 0.1661 | 0.7544 | 0.7019 | 0.6274 | 1.0 |
+| 0.8368 | 0.2005 | 0.8734 | 0.8009 | 0.7956 | 1.0 |
+
+对应 Child 诊断指标仍为：
+
+| Child Recall@5 | Child Precision@5 | Child HitRate@5 | Child MRR@10 | Child nDCG@10 |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.6379 | 0.1686 | 0.7519 | 0.6842 | 0.6226 |
 
 历史基线和消融结果保留在本地，不纳入公开仓库；需要时可以重新运行评测生成。
 
 指标口径：
 
-- `Recall@5` = 前 5 条中命中的相关 Child 数 / 该题全部相关 Child 数；
-- `HitRate@5` = 前 5 条是否至少命中一个相关 Child；
-- `Precision@5` = 命中的相关 Child 数 / 5。
-- `MRR@10` = 第一个相关 Child 的倒数排名。
-- `nDCG@10` = 按相关标注计算的排序增益。
+- `Recall@5` = 前 5 条中命中的唯一相关 Parent 数 / 该题全部唯一相关 Parent 数；
+- `HitRate@5` = 前 5 条是否至少命中一个相关 Parent；
+- `Precision@5` = 命中的唯一相关 Parent 数 / 5，仅作观察，不设交付阻断阈值。
+- `MRR@10` = 第一个相关 Parent 的倒数排名。
+- `nDCG@10` = 按相关 Parent 标注计算的排序增益。
 - `空证据准确率` = 无答案题中返回空证据的比例。
 
 注意：
@@ -63,8 +77,8 @@
 - 跨章节题至少来自 2 个不同章节或文档，每个方面至少标一条。
 - 标注后重新导出切块清单（`--dump-children`），确认所有 `child_id` 仍然存在；
   语料或切块规则变化会使标注整体失效。
-- child 级 Recall 对标注颗粒度敏感：检索到同一文档的其他切片会被判为未命中。
-  排查时可参考 source 级命中率，但验收仍以 child 级为准，不做事后补标。
+- Child 标注仍是原始相关性真值；正式指标映射到 Parent 后去重，同一 Parent 只计一次。
+- Child 级指标仅作为检索、rerank 和证据构造诊断，不参与正式通过判定。
 
 运行方式（评测库默认落在 `CHROMA_PATH` 同级的 `eval-kb/`，可重复运行续传）：
 
@@ -74,10 +88,11 @@ uv run python scripts/run_eval.py --dump-children tests/evals/children.json
 uv run python scripts/run_eval.py --use-current-db      # 改用自己的知识库
 
 uv run python scripts/eval_grouped_metrics.py `
-  --results tests/evals/results/2026-10-26-v2-evidence-148q.json `
-  --output tests/evals/results/2026-10-26-v2-evidence-148q-baseline.json `
+  --results tests/evals/results/2026-10-26-v2-clean-r2-148q.json `
+  --output tests/evals/results/2026-10-26-v2-parent-clean-r2-148q.json `
   --embedding-model BAAI/bge-m3 `
   --rerank-model BAAI/bge-reranker-v2-m3 `
-  --source-commit b88ceb4 `
-  --note "2026-10-26 完整 148 条语言问法，使用最终 evidences"
+  --source-commit 765712f `
+  --baseline-status accepted `
+  --note "清理 source 119 后的正式 Parent 基线"
 ```

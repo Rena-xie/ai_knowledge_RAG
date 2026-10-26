@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import json
-import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from app.domain.ranking_metrics import RankingMetrics, calculate_ranking_metrics
 from app.services.retrieval import RetrievalService
 
-RECALL_K = 5
 LANGUAGE_LABELS = frozenset({"zh", "en", "mixed"})
 
 
@@ -23,6 +22,7 @@ class EvalQuestion:
     category: str
     question: str
     relevant_child_ids: tuple[int, ...] = ()
+    relevant_parent_ids: tuple[int, ...] = ()
     language: str = "zh"
 
 
@@ -33,7 +33,8 @@ class QuestionResult:
     question_id: str
     category: str
     language: str
-    retrieved: tuple[int, ...]
+    retrieved_child_ids: tuple[int, ...]
+    retrieved_parent_ids: tuple[int, ...]
     fused_ids: tuple[int, ...]
     recall_at_5: float | None
     hit_at_5: bool | None
@@ -43,6 +44,34 @@ class QuestionResult:
     mrr_at_10: float | None = None
     ndcg_at_10: float | None = None
     rerank_applied: bool = False
+    child_recall_at_5: float | None = None
+    child_precision_at_5: float | None = None
+    child_hit_at_5: bool | None = None
+    child_mrr_at_10: float | None = None
+    child_ndcg_at_10: float | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "question_id": self.question_id,
+            "category": self.category,
+            "language": self.language,
+            "retrieved_child_ids": list(self.retrieved_child_ids),
+            "retrieved_parent_ids": list(self.retrieved_parent_ids),
+            "fused_ids": list(self.fused_ids),
+            "recall_at_5": self.recall_at_5,
+            "hit_at_5": self.hit_at_5,
+            "empty_evidence": self.empty_evidence,
+            "max_similarity": self.max_similarity,
+            "precision_at_5": self.precision_at_5,
+            "mrr_at_10": self.mrr_at_10,
+            "ndcg_at_10": self.ndcg_at_10,
+            "rerank_applied": self.rerank_applied,
+            "child_recall_at_5": self.child_recall_at_5,
+            "child_precision_at_5": self.child_precision_at_5,
+            "child_hit_at_5": self.child_hit_at_5,
+            "child_mrr_at_10": self.child_mrr_at_10,
+            "child_ndcg_at_10": self.child_ndcg_at_10,
+        }
 
 
 @dataclass(frozen=True)
@@ -69,24 +98,7 @@ class EvalReport:
             "mrr_at_10": self.mrr_at_10,
             "ndcg_at_10": self.ndcg_at_10,
             "category_metrics": self.category_metrics,
-            "results": [
-                {
-                    "question_id": result.question_id,
-                    "category": result.category,
-                    "language": result.language,
-                    "retrieved": list(result.retrieved),
-                    "fused_ids": list(result.fused_ids),
-                    "recall_at_5": result.recall_at_5,
-                    "hit_at_5": result.hit_at_5,
-                    "empty_evidence": result.empty_evidence,
-                    "max_similarity": result.max_similarity,
-                    "precision_at_5": result.precision_at_5,
-                    "mrr_at_10": result.mrr_at_10,
-                    "ndcg_at_10": result.ndcg_at_10,
-                    "rerank_applied": result.rerank_applied,
-                }
-                for result in self.results
-            ],
+            "results": [question_result.as_dict() for question_result in self.results],
         }
 
 
@@ -101,64 +113,53 @@ class EvaluationRunner:
         self._retrieval_service = retrieval_service
 
     def run(self, questions: Sequence[EvalQuestion]) -> EvalReport:
-        results: list[QuestionResult] = []
-        for item in questions:
-            retrieval = self._retrieval_service.search(item.question)
-            retrieved = tuple(
-                evidence.child_id for evidence in retrieval.evidences[:10]
-            )
-            fused_ids = tuple(retrieval.fused_ids[:10])
-            top_k = retrieved[:RECALL_K]
-            recall: float | None = None
-            hit: bool | None = None
-            precision: float | None = None
-            mrr: float | None = None
-            ndcg: float | None = None
-            if item.relevant_child_ids:
-                relevant = set(item.relevant_child_ids)
-                hits = len(set(top_k) & relevant)
-                # 标准 Recall@5：命中的相关块数 / 该题全部相关块数。
-                recall = round(hits / len(relevant), 4)
-                hit = hits > 0
-                # 标准 Precision@5 的分母固定为 5，即使返回结果不足 5 条。
-                precision = round(hits / RECALL_K, 4)
-                mrr = round(_mrr(item.relevant_child_ids, retrieved), 4)
-                ndcg = round(_ndcg(item.relevant_child_ids, retrieved), 4)
-            results.append(
-                QuestionResult(
-                    question_id=item.id,
-                    category=item.category,
-                    language=item.language,
-                    retrieved=retrieved,
-                    fused_ids=fused_ids,
-                    recall_at_5=recall,
-                    hit_at_5=hit,
-                    empty_evidence=not retrieval.evidences,
-                    max_similarity=retrieval.max_similarity,
-                    precision_at_5=precision,
-                    mrr_at_10=mrr,
-                    ndcg_at_10=ndcg,
-                    rerank_applied=retrieval.rerank_applied,
-                )
-            )
-        return self._summarize(questions, results)
+        question_results = [self._evaluate_question(question) for question in questions]
+        return self._summarize(questions, question_results)
+
+    def _evaluate_question(self, question: EvalQuestion) -> QuestionResult:
+        retrieval = self._retrieval_service.search(question.question)
+        retrieved_children = tuple(
+            evidence.child_id for evidence in retrieval.evidences[:10]
+        )
+        retrieved_parents = tuple(
+            evidence.parent_id for evidence in retrieval.evidences[:10]
+        )
+        parent_metrics = calculate_ranking_metrics(
+            question.relevant_parent_ids, retrieved_parents
+        )
+        child_metrics = calculate_ranking_metrics(
+            question.relevant_child_ids, retrieved_children
+        )
+        return QuestionResult(
+            question_id=question.id,
+            category=question.category,
+            language=question.language,
+            retrieved_child_ids=retrieved_children,
+            retrieved_parent_ids=retrieved_parents,
+            fused_ids=tuple(retrieval.fused_ids[:10]),
+            **_metrics_fields(parent_metrics),
+            empty_evidence=not retrieval.evidences,
+            max_similarity=retrieval.max_similarity,
+            rerank_applied=retrieval.rerank_applied,
+            **_child_metric_fields(child_metrics),
+        )
 
     @staticmethod
     def _summarize(
         questions: Sequence[EvalQuestion], results: list[QuestionResult]
     ) -> EvalReport:
         labeled = [
-            result for result, item in zip(results, questions, strict=True)
+            result
+            for result, item in zip(results, questions, strict=True)
             if item.relevant_child_ids
         ]
         unlabeled = [
-            result for result, item in zip(results, questions, strict=True)
+            result
+            for result, item in zip(results, questions, strict=True)
             if not item.relevant_child_ids
         ]
         recall_scores = [
-            result.recall_at_5
-            for result in labeled
-            if result.recall_at_5 is not None
+            result.recall_at_5 for result in labeled if result.recall_at_5 is not None
         ]
         hit_scores = [
             1.0 if result.hit_at_5 else 0.0
@@ -171,15 +172,9 @@ class EvaluationRunner:
             for result in labeled
             if result.precision_at_5 is not None
         ]
-        mrrs = [
-            result.mrr_at_10
-            for result in labeled
-            if result.mrr_at_10 is not None
-        ]
+        mrrs = [result.mrr_at_10 for result in labeled if result.mrr_at_10 is not None]
         ndcgs = [
-            result.ndcg_at_10
-            for result in labeled
-            if result.ndcg_at_10 is not None
+            result.ndcg_at_10 for result in labeled if result.ndcg_at_10 is not None
         ]
         return EvalReport(
             total=len(results),
@@ -189,12 +184,8 @@ class EvaluationRunner:
             precision_at_5=(
                 round(sum(precisions) / len(precisions), 4) if precisions else None
             ),
-            mrr_at_10=(
-                round(sum(mrrs) / len(mrrs), 4) if mrrs else None
-            ),
-            ndcg_at_10=(
-                round(sum(ndcgs) / len(ndcgs), 4) if ndcgs else None
-            ),
+            mrr_at_10=(round(sum(mrrs) / len(mrrs), 4) if mrrs else None),
+            ndcg_at_10=(round(sum(ndcgs) / len(ndcgs), 4) if ndcgs else None),
             category_metrics=_category_metrics(questions, results),
             results=tuple(results),
         )
@@ -204,28 +195,6 @@ def _ratio(numerator: int, denominator: int) -> float | None:
     if denominator == 0:
         return None
     return round(numerator / denominator, 4)
-
-
-def _mrr(relevant: Sequence[int], retrieved: Sequence[int]) -> float:
-    relevant_set = set(relevant)
-    for rank, child_id in enumerate(retrieved, start=1):
-        if child_id in relevant_set:
-            return 1.0 / rank
-    return 0.0
-
-
-def _ndcg(relevant: Sequence[int], retrieved: Sequence[int]) -> float:
-    relevant_set = set(relevant)
-    dcg = sum(
-        1.0 / math.log2(rank + 1)
-        for rank, child_id in enumerate(retrieved[:10], start=1)
-        if child_id in relevant_set
-    )
-    ideal_hits = min(len(relevant_set), 10)
-    idcg = sum(
-        1.0 / math.log2(rank + 1) for rank in range(1, ideal_hits + 1)
-    )
-    return dcg / idcg if idcg else 0.0
 
 
 def _category_metrics(
@@ -239,13 +208,9 @@ def _category_metrics(
             for question, result in zip(questions, results, strict=True)
             if question.category == category
         ]
-        labeled = [
-            result for question, result in paired if question.relevant_child_ids
-        ]
+        labeled = [result for question, result in paired if question.relevant_child_ids]
         unlabeled = [
-            result
-            for question, result in paired
-            if not question.relevant_child_ids
+            result for question, result in paired if not question.relevant_child_ids
         ]
         recalls = [result.recall_at_5 for result in labeled]
         hits = sum(1 for result in labeled if result.hit_at_5)
@@ -257,11 +222,7 @@ def _category_metrics(
             "mrr_at_10": _average([result.mrr_at_10 for result in labeled]),
             "ndcg_at_10": _average([result.ndcg_at_10 for result in labeled]),
             "empty_evidence_accuracy": _ratio(
-                sum(
-                    1
-                    for result in unlabeled
-                    if result.empty_evidence
-                ),
+                sum(1 for result in unlabeled if result.empty_evidence),
                 len(unlabeled),
             ),
         }
@@ -282,6 +243,10 @@ def load_questions(path: Path) -> list[EvalQuestion]:
     default_language = str(payload.get("default_language", "zh"))
     if default_language not in LANGUAGE_LABELS:
         raise ValueError(f"未知默认语言: {default_language}")
+    map_file = payload.get("child_parent_map_file")
+    if map_file is None:
+        raise ValueError("题库缺少 child_parent_map_file")
+    child_parent_map = load_child_parent_map(path.parent / str(map_file))
     questions: list[EvalQuestion] = []
     seen: set[str] = set()
     for raw in payload.get("questions", []):
@@ -292,13 +257,19 @@ def load_questions(path: Path) -> list[EvalQuestion]:
         language = str(raw.get("language", default_language))
         if language not in LANGUAGE_LABELS:
             raise ValueError(f"题目语言不合法: {question_id}={language}")
+        relevant_child_ids = tuple(
+            int(value) for value in raw.get("relevant_child_ids", [])
+        )
         questions.append(
             EvalQuestion(
                 id=question_id,
                 category=str(raw["category"]),
                 question=str(raw["question"]),
-                relevant_child_ids=tuple(
-                    int(value) for value in raw.get("relevant_child_ids", [])
+                relevant_child_ids=relevant_child_ids,
+                relevant_parent_ids=_relevant_parent_ids(
+                    relevant_child_ids,
+                    child_parent_map,
+                    question_id,
                 ),
                 language=language,
             )
@@ -306,3 +277,81 @@ def load_questions(path: Path) -> list[EvalQuestion]:
     if not questions:
         raise ValueError("题库为空")
     return questions
+
+
+def load_child_parent_map(path: Path) -> dict[int, int]:
+    """加载完整 Child 到 Parent 映射，并拒绝重复键。"""
+
+    payload = json.loads(
+        path.read_text(encoding="utf-8"),
+        object_pairs_hook=_reject_duplicate_object_keys,
+    )
+    raw_mapping = payload.get("child_parent_ids")
+    if not isinstance(raw_mapping, dict):
+        raise ValueError(f"Child 到 Parent 映射格式无效: {path}")
+    mapping = {
+        int(child_id): int(parent_id) for child_id, parent_id in raw_mapping.items()
+    }
+    if any(child_id <= 0 or parent_id <= 0 for child_id, parent_id in mapping.items()):
+        raise ValueError(f"Child 到 Parent 映射包含非正数: {path}")
+    return mapping
+
+
+def _reject_duplicate_object_keys(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    parsed: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in parsed:
+            raise ValueError(f"JSON 存在重复键: {key}")
+        parsed[key] = value
+    return parsed
+
+
+def _relevant_parent_ids(
+    child_ids: Sequence[int],
+    child_parent_map: dict[int, int],
+    question_id: str,
+) -> tuple[int, ...]:
+    missing = [child_id for child_id in child_ids if child_id not in child_parent_map]
+    if missing:
+        raise ValueError(f"题目 {question_id} 缺少 Child 到 Parent 映射: {missing}")
+    return tuple(dict.fromkeys(child_parent_map[child_id] for child_id in child_ids))
+
+
+def _metrics_fields(metrics: RankingMetrics | None) -> dict[str, Any]:
+    if metrics is None:
+        return {
+            "recall_at_5": None,
+            "hit_at_5": None,
+            "precision_at_5": None,
+            "mrr_at_10": None,
+            "ndcg_at_10": None,
+        }
+    return {
+        "recall_at_5": metrics.recall_at_5,
+        "hit_at_5": metrics.hit_at_5,
+        "precision_at_5": metrics.precision_at_5,
+        "mrr_at_10": metrics.mrr_at_10,
+        "ndcg_at_10": metrics.ndcg_at_10,
+    }
+
+
+def _child_metric_fields(
+    metrics: RankingMetrics | None,
+) -> dict[str, Any]:
+    if metrics is None:
+        return {
+            "child_recall_at_5": None,
+            "child_precision_at_5": None,
+            "child_hit_at_5": None,
+            "child_mrr_at_10": None,
+            "child_ndcg_at_10": None,
+        }
+    return {
+        "child_recall_at_5": metrics.recall_at_5,
+        "child_precision_at_5": metrics.precision_at_5,
+        "child_hit_at_5": metrics.hit_at_5,
+        "child_mrr_at_10": metrics.mrr_at_10,
+        "child_ndcg_at_10": metrics.ndcg_at_10,
+    }

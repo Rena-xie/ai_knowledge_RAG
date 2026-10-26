@@ -9,6 +9,7 @@ from app.infra.fetcher import Fetcher
 from app.infra.fts import FtsIndex
 from app.infra.rerank import RerankClient
 from app.infra.vector import VectorIndex
+from app.services.cost import CostService
 from app.services.ingestion import IngestionService
 from app.services.ingestion_jobs import IngestionWorker, JobService
 from app.services.retrieval import RetrievalService
@@ -31,6 +32,10 @@ class Container:
         self.engine = create_db_engine(settings.sqlite_path)
         init_db(self.engine)
         self.session_factory = create_session_factory(self.engine)
+        self.cost_service = CostService(
+            session_factory=self.session_factory,
+            settings=settings,
+        )
         self.fts_index = FtsIndex(self.engine)
         self.fts_index.ensure_schema()
         self.vector_index = VectorIndex(settings.chroma_path)
@@ -56,6 +61,7 @@ class Container:
                 model=settings.embedding_model,
                 timeout_s=settings.embed_timeout_s,
                 max_retries=settings.embed_max_retries,
+                usage_observer=self.cost_service,
             )
         )
         self.source_service = SourceService(
@@ -91,6 +97,7 @@ class Container:
             vector_index=self.vector_index,
             settings=settings,
             rerank_client=rerank_client,
+            usage_observer=self.cost_service,
         )
 
     def start_background_tasks(self) -> None:

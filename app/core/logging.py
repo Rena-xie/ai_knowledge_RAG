@@ -5,7 +5,24 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-EXTRA_FIELDS = ("request_id", "source_id", "stage", "duration_ms", "error_code")
+EXTRA_FIELDS = (
+    "request_id",
+    "job_id",
+    "source_id",
+    "stage",
+    "duration_ms",
+    "error_code",
+    "operation",
+    "provider",
+    "model",
+    "input_units",
+    "usage_source",
+    "currency",
+    "cost",
+    "success",
+    "attempt",
+    "timed_out",
+)
 LOG_MAX_BYTES = 5 * 1024 * 1024
 LOG_BACKUP_COUNT = 3
 

@@ -36,8 +36,11 @@ def test_rejects_non_http_scheme() -> None:
     [
         "http://127.0.0.1/page",
         "http://10.0.0.1/page",
+        "http://100.64.0.1/page",
         "http://169.254.169.254/latest/meta-data",
         "http://[::1]/page",
+        "http://[fec0::1]/page",
+        "http://[64:ff9b::7f00:1]/page",
     ],
 )
 def test_rejects_private_and_reserved_addresses(url: str) -> None:
@@ -62,11 +65,32 @@ def test_fetches_html_page() -> None:
     assert result.url == PUBLIC_URL
 
 
+def test_rejects_url_credentials() -> None:
+    fetcher = make_fetcher(lambda request: httpx.Response(200, text="x"))
+
+    with pytest.raises(FetchError) as excinfo:
+        fetcher.fetch("https://user:secret@93.184.216.34/page")
+
+    assert excinfo.value.code == ErrorCode.SSRF_BLOCKED
+    assert "secret" not in str(excinfo.value)
+
+
 def test_rejects_unsupported_content_type() -> None:
     fetcher = make_fetcher(
         lambda request: httpx.Response(
             200, headers={"content-type": "application/pdf"}, content=b"%PDF"
         )
+    )
+
+    with pytest.raises(FetchError) as excinfo:
+        fetcher.fetch(PUBLIC_URL)
+
+    assert excinfo.value.code == ErrorCode.FETCH_UNSUPPORTED_CONTENT
+
+
+def test_rejects_missing_content_type() -> None:
+    fetcher = make_fetcher(
+        lambda request: httpx.Response(200, content=b"<p>unknown</p>")
     )
 
     with pytest.raises(FetchError) as excinfo:

@@ -182,15 +182,26 @@ class SourceService:
                 )
                 session.commit()
         except AppError as error:
-            # 索引层已给出明确错误码（如 INDEX_WRITE_FAILED），原样保留。
-            self._mark_delete_failed(source_id, error.code, error.message)
-            raise AppError(error.code, f"级联删除失败: {error}") from error
+            message = "派生索引删除失败" if stage == "index" else "数据库删除失败"
+            logger.error(
+                "级联删除失败: %s",
+                type(error).__name__,
+                extra={"source_id": source_id, "stage": stage},
+            )
+            self._mark_delete_failed(source_id, error.code, message)
+            raise AppError(error.code, message) from error
         except Exception as error:
             # 按失败阶段区分：关系数据删除失败是数据库故障，派生索引删除失败
             # 才是索引写入失败，避免排查时被错误码引向错误方向。
             code = ErrorCode.DB_ERROR if stage == "db" else ErrorCode.INDEX_WRITE_FAILED
-            self._mark_delete_failed(source_id, code, str(error))
-            raise AppError(code, f"级联删除失败: {error}") from error
+            message = "数据库删除失败" if stage == "db" else "派生索引删除失败"
+            logger.error(
+                "级联删除失败: %s",
+                type(error).__name__,
+                extra={"source_id": source_id, "stage": stage},
+            )
+            self._mark_delete_failed(source_id, code, message)
+            raise AppError(code, message) from error
 
     def mark_status(
         self,

@@ -6,6 +6,7 @@ import time
 
 from fastapi import APIRouter, Request
 
+from app.api.costs import cost_bucket_response
 from app.api.schemas import EvidenceResponse, QuestionRequest, SearchResponse
 
 router = APIRouter(prefix="/api/v1/search", tags=["search"])
@@ -17,6 +18,7 @@ def search(payload: QuestionRequest, request: Request) -> SearchResponse:
 
     started = time.perf_counter()
     result = request.app.state.container.retrieval_service.search(payload.question)
+    request_id = str(getattr(request.state, "request_id", ""))
     elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
     return SearchResponse(
         question=payload.question,
@@ -40,4 +42,10 @@ def search(payload: QuestionRequest, request: Request) -> SearchResponse:
             for evidence in result.evidences
         ],
         elapsed_ms=elapsed_ms,
+        costs=[
+            cost_bucket_response(cost)
+            for cost in request.app.state.container.cost_service.summary_for_request(
+                request_id
+            )
+        ],
     )

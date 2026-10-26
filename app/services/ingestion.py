@@ -12,6 +12,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.clock import utc_now_iso
+from app.core.context import bind_source_id
 from app.core.errors import AppError, ErrorCode
 from app.core.settings import Settings
 from app.domain.chunking import ParentChunk as DomainParent
@@ -260,10 +261,11 @@ class IngestionService:
                 for parent in parents
                 for child in parent.children
             ]
-            embeddings = self._embedder.embed(
-                embedding_texts,
-                budget_s=deadline - time.monotonic(),
-            )
+            with bind_source_id(source_id):
+                embeddings = self._embedder.embed(
+                    embedding_texts,
+                    budget_s=deadline - time.monotonic(),
+                )
             self._check_deadline(deadline)
 
             old_child_ids = self._child_ids(source_id)
@@ -337,7 +339,15 @@ class IngestionService:
         except AppError:
             raise
         except Exception as error:
-            raise AppError(_error_code(error), str(error)) from error
+            code = _error_code(error)
+            message = _safe_error_message(error)
+            if code is ErrorCode.INTERNAL_ERROR:
+                logger.error(
+                    "刷新来源发生未预期异常: %s",
+                    type(error).__name__,
+                    extra={"source_id": source_id, "stage": "refresh"},
+                )
+            raise AppError(code, message) from error
 
     def _run_pipeline(self, source_id: int, url: str) -> IngestResult:
         deadline = time.monotonic() + self._settings.ingest_timeout_s
@@ -411,14 +421,21 @@ class IngestionService:
             )
         except Exception as error:
             code = _error_code(error)
+            message = _safe_error_message(error)
+            if code is ErrorCode.INTERNAL_ERROR:
+                logger.error(
+                    "入库发生未预期异常: %s",
+                    type(error).__name__,
+                    extra={"source_id": source_id, "stage": "ingest"},
+                )
             self._compensate(source_id)
             self._source_service.mark_status(
                 source_id,
                 SourceStatus.FAILED,
                 error_code=code,
-                error_message=str(error),
+                error_message=message,
             )
-            raise AppError(code, str(error)) from error
+            raise AppError(code, message) from error
 
     def ingest_markdown(
         self,
@@ -495,14 +512,21 @@ class IngestionService:
             )
         except Exception as error:
             code = _error_code(error)
+            message = _safe_error_message(error)
+            if code is ErrorCode.INTERNAL_ERROR:
+                logger.error(
+                    "Markdown 入库发生未预期异常: %s",
+                    type(error).__name__,
+                    extra={"source_id": source_id, "stage": "ingest_markdown"},
+                )
             self._compensate(source_id)
             self._source_service.mark_status(
                 source_id,
                 SourceStatus.FAILED,
                 error_code=code,
-                error_message=str(error),
+                error_message=message,
             )
-            raise AppError(code, str(error)) from error
+            raise AppError(code, message) from error
         finally:
             self._lock.release()
 
@@ -533,9 +557,10 @@ class IngestionService:
         self._log_stage(source_id, "persist", stage)
         self._check_deadline(deadline)
         stage = time.perf_counter()
-        embeddings = self._embedder.embed(
-            embedding_texts, budget_s=deadline - time.monotonic()
-        )
+        with bind_source_id(source_id):
+            embeddings = self._embedder.embed(
+                embedding_texts, budget_s=deadline - time.monotonic()
+            )
         self._log_stage(source_id, "embed", stage)
         self._check_deadline(deadline)
         stage = time.perf_counter()
@@ -810,6 +835,16 @@ def _error_code(error: Exception) -> ErrorCode:
     if isinstance(error, TimeoutError):
         return ErrorCode.INGEST_TIMEOUT
     return ErrorCode.INTERNAL_ERROR
+
+
+def _safe_error_message(error: Exception) -> str:
+    if isinstance(error, AppError):
+        return error.message
+    if isinstance(error, (FetchError, ParseError, EmbeddingError)):
+        return str(error)
+    if isinstance(error, TimeoutError):
+        return "入库超过时间预算"
+    return "服务内部错误"
 
 
 def _markdown_title(markdown: str) -> str | None:

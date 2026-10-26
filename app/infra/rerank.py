@@ -9,6 +9,13 @@ from dataclasses import dataclass
 
 import httpx
 
+from app.domain.cost import (
+    ApiUsageAttempt,
+    CostUsageObserver,
+    estimate_input_units,
+    extract_usage_tokens,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,6 +43,7 @@ class RerankClient:
         timeout_s: int = 10,
         max_retries: int = 1,
         transport: httpx.BaseTransport | None = None,
+        usage_observer: CostUsageObserver | None = None,
     ) -> None:
         self._client = httpx.Client(
             base_url=api_base.rstrip("/"),
@@ -45,6 +53,7 @@ class RerankClient:
         self._api_key = api_key
         self._model = model
         self._max_retries = max_retries
+        self._usage_observer = usage_observer
 
     def rerank(
         self, query: str, documents: Sequence[str]
@@ -62,13 +71,23 @@ class RerankClient:
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
+        estimated_units = estimate_input_units((query, *documents))
         last_error: Exception | None = None
-        for attempt in range(self._max_retries + 1):
+        for attempt in range(1, self._max_retries + 2):
+            self._check_budget(estimated_units)
+            recorded = False
             try:
                 response = self._client.post(
                     "/rerank", json=payload, headers=headers
                 )
                 if response.status_code >= 400:
+                    self._record_attempt(
+                        estimated_units,
+                        success=False,
+                        attempt=attempt,
+                        error_code="RERANK_HTTP_ERROR",
+                    )
+                    recorded = True
                     raise RerankError(
                         f"rerank HTTP {response.status_code}: "
                         f"{response.text[:200]}"
@@ -80,12 +99,66 @@ class RerankClient:
                 hits = _parse_results(results, document_count=len(documents))
                 if not hits:
                     raise RerankError("rerank 未返回有效结果")
+                input_units = extract_usage_tokens(data)
+                recorded_units = (
+                    input_units
+                    if input_units is not None
+                    else estimated_units
+                )
+                self._record_attempt(
+                    recorded_units,
+                    success=True,
+                    attempt=attempt,
+                    usage_source=(
+                        "provider"
+                        if input_units is not None
+                        else "estimated_characters"
+                    ),
+                )
                 return sorted(hits, key=lambda hit: (-hit.score, hit.index))
             except (httpx.HTTPError, ValueError, RerankError) as error:
+                if not recorded:
+                    self._record_attempt(
+                        estimated_units,
+                        success=False,
+                        attempt=attempt,
+                        error_code="RERANK_FAILED",
+                        timed_out=isinstance(error, httpx.TimeoutException),
+                    )
                 last_error = error
-                if attempt < self._max_retries:
-                    time.sleep(0.2 * (2**attempt))
+                if attempt <= self._max_retries:
+                    time.sleep(0.2 * (2 ** (attempt - 1)))
         raise RerankError(str(last_error or "rerank 失败"))
+
+    def _check_budget(self, input_units: int) -> None:
+        if self._usage_observer is None:
+            return
+        self._usage_observer.check_budget("rerank", input_units)
+
+    def _record_attempt(
+        self,
+        input_units: int,
+        *,
+        success: bool,
+        attempt: int,
+        usage_source: str = "estimated_characters",
+        error_code: str | None = None,
+        timed_out: bool = False,
+    ) -> None:
+        if self._usage_observer is None:
+            return
+        self._usage_observer.record_attempt(
+            ApiUsageAttempt(
+                operation="rerank",
+                model=self._model,
+                input_units=input_units,
+                usage_source=usage_source,
+                success=success,
+                attempt=attempt,
+                error_code=error_code,
+                timed_out=timed_out,
+            )
+        )
 
     def close(self) -> None:
         self._client.close()

@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.domain.url import InvalidUrlError, normalize_url
+from app.domain.url import InvalidUrlError, normalize_url, redact_url_credentials
 
 
 def test_lowercases_scheme_and_host_and_normalizes_empty_path() -> None:
@@ -43,8 +43,23 @@ def test_rejects_missing_host() -> None:
 
 
 def test_rejects_credentials() -> None:
-    with pytest.raises(InvalidUrlError):
+    with pytest.raises(InvalidUrlError) as exc_info:
         normalize_url("https://user:pass@example.com/a")
+
+    assert "user" not in str(exc_info.value)
+    assert "pass" not in str(exc_info.value)
+
+
+def test_rejects_malformed_url() -> None:
+    with pytest.raises(InvalidUrlError, match="格式不合法"):
+        normalize_url("http://[::1")
+
+
+def test_redacts_url_credentials() -> None:
+    assert (
+        redact_url_credentials("https://user:pass@example.com/a?q=1")
+        == "https://example.com/a?q=1"
+    )
 
 
 def test_rejects_empty_input() -> None:

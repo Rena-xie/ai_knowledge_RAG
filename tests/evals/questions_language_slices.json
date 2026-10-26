@@ -1,9 +1,10 @@
 {
-  "version": 7,
+  "version": 8,
   "corpus": "tests/evals/corpus.json",
   "chunker_version": "v1",
   "snapshot": "2026-10-19",
   "default_language": "zh",
+  "child_parent_map_file": "child_parent_map.json",
   "note": "英文和中英混合语言切片；这些问法复用各自独立问题的相关 Child。",
   "questions": [
     {

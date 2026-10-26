@@ -148,6 +148,34 @@ def test_invalid_url_is_failed_item(env: Env) -> None:
     assert view.status == JobStatus.QUEUED
 
 
+def test_unknown_ingestion_error_is_not_echoed(env: Env) -> None:
+    bad_url = "https://example.com/bad"
+    ingestion = FakeIngestion(
+        {bad_url: RuntimeError("/secret/internal/path")}
+    )
+    service = build_service(env, ingestion)
+    result = service.create_job([bad_url], enqueue=lambda _: None)
+
+    service.run_job(result.job_id)
+
+    item = service.get_job(result.job_id).items[0]
+    assert item.error_code == ErrorCode.INTERNAL_ERROR.value
+    assert item.error_message == "服务内部错误"
+
+
+def test_invalid_credential_url_is_redacted(env: Env) -> None:
+    service = build_service(env, FakeIngestion({}))
+    result = service.create_job(
+        ["https://user:secret@example.com/a", "https://example.com/b"],
+        enqueue=lambda _: None,
+    )
+
+    view = service.get_job(result.job_id)
+
+    assert all("secret" not in item.url for item in view.items)
+    assert all("secret" not in (item.error_message or "") for item in view.items)
+
+
 def test_run_job_isolates_failures(env: Env) -> None:
     good_url = "https://example.com/good"
     bad_url = "https://example.com/bad"

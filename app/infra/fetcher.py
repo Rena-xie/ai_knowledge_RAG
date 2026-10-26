@@ -75,14 +75,8 @@ def is_public_address(address: str) -> bool:
     ip = ipaddress.ip_address(address)
     if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
         ip = ip.ipv4_mapped
-    return not (
-        ip.is_private
-        or ip.is_loopback
-        or ip.is_link_local
-        or ip.is_reserved
-        or ip.is_multicast
-        or ip.is_unspecified
-    )
+    is_site_local = isinstance(ip, ipaddress.IPv6Address) and ip.is_site_local
+    return ip.is_global and not ip.is_reserved and not is_site_local
 
 
 class Fetcher:
@@ -145,6 +139,8 @@ class Fetcher:
         parts = urlsplit(url)
         if parts.scheme not in ALLOWED_SCHEMES:
             raise FetchError(ErrorCode.SSRF_BLOCKED, f"仅支持 HTTP/HTTPS: {url}")
+        if parts.username or parts.password:
+            raise FetchError(ErrorCode.SSRF_BLOCKED, "URL 不允许携带凭据")
         host = parts.hostname
         if not host:
             raise FetchError(ErrorCode.SSRF_BLOCKED, f"URL 缺少主机名: {url}")
@@ -297,7 +293,7 @@ class Fetcher:
         content_type = (
             response.headers.get("content-type", "").split(";")[0].strip().lower()
         )
-        if content_type and content_type not in ALLOWED_CONTENT_TYPES:
+        if content_type not in ALLOWED_CONTENT_TYPES:
             raise FetchError(
                 ErrorCode.FETCH_UNSUPPORTED_CONTENT,
                 f"不支持的内容类型: {content_type}",

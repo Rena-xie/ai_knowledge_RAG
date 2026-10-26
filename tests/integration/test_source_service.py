@@ -314,6 +314,7 @@ def test_delete_app_error_keeps_index_code(env: dict[str, object]) -> None:
     source = service.get(source_id)
     assert source is not None
     assert source.error_code == ErrorCode.INDEX_WRITE_FAILED.value
+    assert source.error_message == "派生索引删除失败"
 
 
 def test_delete_db_failure_records_db_error(env: dict[str, object]) -> None:
@@ -339,3 +340,4 @@ def test_delete_db_failure_records_db_error(env: dict[str, object]) -> None:
     assert source is not None
     assert source.status == "deleting"
     assert source.error_code == ErrorCode.DB_ERROR.value
+    assert source.error_message == "数据库删除失败"

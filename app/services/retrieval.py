@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.errors import AppError, ErrorCode
 from app.core.settings import Settings
+from app.domain.cost import CostBudgetExceeded, CostUsageObserver
 from app.domain.literal import extract_literals
 from app.domain.rrf import FusedHit, rrf_fuse
 from app.domain.state import SourceStatus
 from app.infra.db import ChildChunk, KnowledgeSource, ParentChunk
-from app.infra.embedding import EmbeddingClient
+from app.infra.embedding import EmbeddingClient, EmbeddingError
 from app.infra.fts import FtsIndex
 from app.infra.rerank import RerankClient, RerankError
 from app.infra.vector import VectorIndex
@@ -100,6 +101,7 @@ class RetrievalService:
         vector_index: VectorIndex,
         settings: Settings,
         rerank_client: RerankClient | None = None,
+        usage_observer: CostUsageObserver | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._embedder = embedder
@@ -114,6 +116,7 @@ class RetrievalService:
                 model=settings.rerank_model,
                 timeout_s=settings.rerank_timeout_s,
                 max_retries=settings.rerank_max_retries,
+                usage_observer=usage_observer,
             )
 
     def search(self, question: str) -> RetrievalResult:
@@ -135,6 +138,19 @@ class RetrievalService:
             dense_ids = tuple(hit.child_id for hit in dense_hits)
             max_similarity = max(
                 (hit.similarity for hit in dense_hits), default=0.0
+            )
+        except EmbeddingError as error:
+            if error.code is ErrorCode.COST_BUDGET_EXCEEDED:
+                raise AppError(
+                    ErrorCode.COST_BUDGET_EXCEEDED,
+                    error.message,
+                ) from error
+            dense_available = False
+            degraded_routes.append("dense")
+            logger.warning(
+                "Dense 检索失败，降级为 BM25 单路",
+                exc_info=True,
+                extra={"stage": "retrieval"},
             )
         except Exception:
             dense_available = False
@@ -197,6 +213,11 @@ class RetrievalService:
             documents = [rows[hit.child_id][0].text for hit in candidates]
             try:
                 rerank_hits = self._rerank_client.rerank(question, documents)
+            except CostBudgetExceeded as error:
+                raise AppError(
+                    ErrorCode.COST_BUDGET_EXCEEDED,
+                    str(error),
+                ) from error
             except RerankError as error:
                 logger.warning(
                     "rerank 失败，回退 RRF 顺序: %s",

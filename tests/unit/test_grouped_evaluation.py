@@ -29,97 +29,74 @@ def _question(
 def _result(
     question_id: str,
     *,
-    recall: float | None,
-    precision: float | None,
-    hit: bool | None,
-    mrr: float | None,
-    ndcg: float | None,
-    empty: bool = False,
+    retrieved_child_ids: tuple[int, ...],
 ) -> dict[str, object]:
     return {
         "question_id": question_id,
-        "recall_at_5": recall,
-        "precision_at_5": precision,
-        "hit_at_5": hit,
-        "mrr_at_10": mrr,
-        "ndcg_at_10": ndcg,
-        "retrieved": [] if empty else [1],
-        "empty_evidence": empty,
+        "retrieved": list(retrieved_child_ids),
+        "empty_evidence": not retrieved_child_ids,
     }
 
 
 def test_groups_by_independent_question_and_language() -> None:
     questions = {
-        "version": 7,
+        "version": 8,
         "default_language": "zh",
+        "child_parent_map_file": "child_parent_map.json",
         "questions": [
-            _question("q01", "专有名词"),
-            _question("q01a", "专有名词", language="en"),
-            _question("q01b", "专有名词", language="mixed"),
-            _question("q02", "语义改写"),
+            _question("q01", "专有名词", labels=(1, 2)),
+            _question("q01a", "专有名词", language="en", labels=(1, 2)),
+            _question(
+                "q01b",
+                "专有名词",
+                language="mixed",
+                labels=(1, 2),
+            ),
+            _question("q02", "语义改写", labels=(3,)),
             _question("q03", "无答案", labels=()),
         ],
     }
     results = {
         "results": [
-            _result(
-                "q01",
-                recall=1.0,
-                precision=0.2,
-                hit=True,
-                mrr=1.0,
-                ndcg=1.0,
-            ),
-            _result(
-                "q01a",
-                recall=0.5,
-                precision=0.2,
-                hit=True,
-                mrr=0.5,
-                ndcg=0.5,
-            ),
-            _result(
-                "q01b",
-                recall=0.0,
-                precision=0.0,
-                hit=False,
-                mrr=0.0,
-                ndcg=0.0,
-            ),
-            _result(
-                "q02",
-                recall=0.5,
-                precision=0.2,
-                hit=False,
-                mrr=0.0,
-                ndcg=0.0,
-            ),
-            _result(
-                "q03",
-                recall=None,
-                precision=None,
-                hit=None,
-                mrr=None,
-                ndcg=None,
-                empty=True,
-            ),
+            _result("q01", retrieved_child_ids=(1, 2)),
+            _result("q01a", retrieved_child_ids=(1,)),
+            _result("q01b", retrieved_child_ids=()),
+            _result("q02", retrieved_child_ids=(3,)),
+            _result("q03", retrieved_child_ids=()),
         ]
     }
 
-    payload = group_results(questions, results)
+    payload = group_results(
+        questions,
+        results,
+        {1: 10, 2: 10, 3: 30},
+    )
 
     assert payload["totals"]["groups"] == 3
     assert payload["totals"]["variants"] == 5
-    assert payload["totals"]["recall_at_5"] == pytest.approx(0.5)
+    assert payload["totals"]["recall_at_5"] == pytest.approx(0.8334)
     assert payload["totals"]["precision_at_5"] == pytest.approx(0.1667)
-    assert payload["totals"]["hit_rate_at_5"] == pytest.approx(0.3333)
+    assert payload["totals"]["hit_rate_at_5"] == pytest.approx(0.8334)
+    assert payload["totals"]["child_recall_at_5"] == pytest.approx(0.75)
     assert payload["totals"]["empty_evidence_accuracy"] == 1.0
     assert payload["language_metrics"]["zh"]["variants"] == 3
-    assert payload["language_metrics"]["zh"]["recall_at_5"] == pytest.approx(
-        0.75
-    )
+    assert payload["language_metrics"]["zh"]["recall_at_5"] == 1.0
     assert payload["language_metrics"]["en"]["groups"] == 1
+    assert payload["language_metrics"]["en"]["recall_at_5"] == 1.0
     assert payload["language_metrics"]["mixed"]["recall_at_5"] == 0.0
+    assert payload["metric_unit"] == "parent"
+
+
+def test_group_results_rejects_missing_parent_mapping() -> None:
+    questions = {
+        "version": 8,
+        "child_parent_map_file": "child_parent_map.json",
+        "questions": [_question("q01", "专有名词")],
+    }
+    results = {"results": [_result("q01", retrieved_child_ids=(1, 99))]}
+
+    with pytest.raises(ValueError, match="缺少 Parent 映射"):
+        group_results(questions, results, {1: 10})
 
 
 def test_merge_results_rejects_duplicate_question(

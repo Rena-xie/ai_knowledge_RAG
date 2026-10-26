@@ -1,6 +1,6 @@
 """入库流水线（见《项目开发说明_v1.md》4.4、5.3、5.4）。"""
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
 
 import pytest
@@ -152,12 +152,13 @@ def build_service(
     *,
     fetcher: FakeFetcher | None = None,
     embedder: FakeEmbedder | None = None,
+    parser: Callable[..., object] | None = None,
     **settings_overrides,
 ) -> IngestionService:
-    return IngestionService(
-        session_factory=env["session_factory"],
-        source_service=env["source_service"],
-        fetcher=fetcher
+    options = {
+        "session_factory": env["session_factory"],
+        "source_service": env["source_service"],
+        "fetcher": fetcher
         or FakeFetcher(
             FetchResult(
                 url="https://example.com/a",
@@ -165,11 +166,35 @@ def build_service(
                 html=ARTICLE,
             )
         ),
-        embedder=embedder or FakeEmbedder(),
-        fts_index=env["fts"],
-        vector_index=env["vector"],
-        settings=build_settings(**settings_overrides),
-    )
+        "embedder": embedder or FakeEmbedder(),
+        "fts_index": env["fts"],
+        "vector_index": env["vector"],
+        "settings": build_settings(**settings_overrides),
+    }
+    if parser is not None:
+        options["parser"] = parser
+    return IngestionService(**options)
+
+
+def test_unknown_pipeline_error_is_not_echoed(
+    env: dict[str, object],
+) -> None:
+    def fail_parser(*_args: object, **_kwargs: object) -> object:
+        raise RuntimeError("/secret/internal/path")
+
+    service = build_service(env, parser=fail_parser)
+
+    with pytest.raises(AppError) as exc_info:
+        service.ingest("https://example.com/a")
+
+    assert exc_info.value.code is ErrorCode.INTERNAL_ERROR
+    assert exc_info.value.message == "服务内部错误"
+    with env["session_factory"]() as session:
+        source_id = session.scalar(select(KnowledgeSource.id))
+    assert source_id is not None
+    source = env["source_service"].get(source_id)
+    assert source is not None
+    assert source.error_message == "服务内部错误"
 
 
 def count_rows(env: dict[str, object], model: type) -> int:

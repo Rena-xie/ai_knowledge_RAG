@@ -19,6 +19,19 @@ def test_json_formatter_emits_ascii_safe_json() -> None:
     )
     record.stage = "startup"
     record.duration_ms = 12
+    record.job_id = "job_test"
+    record.source_id = 7
+    record.operation = "embedding"
+    record.provider = "siliconflow"
+    record.model = "BAAI/bge-m3"
+    record.input_units = 12
+    record.usage_source = "provider"
+    record.currency = "CNY"
+    record.cost = 0.000001
+    record.success = True
+    record.attempt = 1
+    record.timed_out = False
+    record.api_key = "must-not-leak"
 
     payload = JsonFormatter().format(record)
 
@@ -28,6 +41,12 @@ def test_json_formatter_emits_ascii_safe_json() -> None:
     assert data["message"] == "应用启动完成"
     assert data["stage"] == "startup"
     assert data["duration_ms"] == 12
+    assert data["job_id"] == "job_test"
+    assert data["source_id"] == 7
+    assert data["operation"] == "embedding"
+    assert data["input_units"] == 12
+    assert data["cost"] == 0.000001
+    assert "api_key" not in data
 
 
 def test_configure_logging_writes_rolling_file(tmp_path: Path) -> None:

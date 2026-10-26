@@ -94,6 +94,34 @@ class SourceContentResponse(BaseModel):
     parents: list[ParentPreviewResponse]
 
 
+class ApiCostBucketResponse(BaseModel):
+    """按操作、模型和用量来源聚合的 API 成本。"""
+
+    operation: str
+    provider: str
+    model: str
+    usage_source: str
+    currency: str
+    price_per_million: float | None
+    input_units: int
+    cost: float | None
+    request_count: int
+    success_count: int
+    failure_count: int
+    retry_count: int
+    timeout_count: int
+    uncosted_count: int
+    cost_status: str
+
+
+class ApiCostSummaryResponse(BaseModel):
+    """API 成本聚合查询结果。"""
+
+    since_hours: int
+    budget_24h: float | None
+    items: list[ApiCostBucketResponse]
+
+
 class QuestionRequest(BaseModel):
     """检索与问答的公共请求体。"""
 
@@ -125,6 +153,7 @@ class SearchResponse(BaseModel):
     rerank_applied: bool = False
     rerank_model: str | None = None
     elapsed_ms: float
+    costs: list[ApiCostBucketResponse] = Field(default_factory=list)
 
 
 class IngestionCreateRequest(BaseModel):
@@ -186,6 +215,7 @@ class IngestionJobResponse(BaseModel):
     finished_at: str | None = None
     items: list[IngestionItemResponse]
     items_truncated: bool = False
+    costs: list[ApiCostBucketResponse] = Field(default_factory=list)
 
 
 class IngestionJobSummaryResponse(BaseModel):

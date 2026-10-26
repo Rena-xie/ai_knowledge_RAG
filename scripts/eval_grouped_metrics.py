@@ -12,6 +12,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.domain.ranking_metrics import (  # noqa: E402
+    RankingMetrics,
+    calculate_ranking_metrics,
+)
+from app.services.evaluation import load_child_parent_map  # noqa: E402
+
 _QUESTION_ID = re.compile(r"(q\d+)[a-z]*$")
 _LANGUAGES = frozenset({"zh", "en", "mixed"})
 
@@ -58,29 +68,35 @@ def _group_summary(
         "languages": sorted({str(variant["language"]) for variant in variants}),
         "variants": len(variants),
         "labeled": len(labeled),
-        "recall_at_5": _average(
-            [variant["recall_at_5"] for variant in labeled]
-        ),
-        "precision_at_5": _average(
-            [variant["precision_at_5"] for variant in labeled]
-        ),
+        "recall_at_5": _average([variant["recall_at_5"] for variant in labeled]),
+        "precision_at_5": _average([variant["precision_at_5"] for variant in labeled]),
         "hit_rate_at_5": _ratio(
             sum(1 for variant in labeled if variant["hit_at_5"]),
             len(labeled),
         ),
-        "mrr_at_10": _average(
-            [variant["mrr_at_10"] for variant in labeled]
+        "mrr_at_10": _average([variant["mrr_at_10"] for variant in labeled]),
+        "ndcg_at_10": _average([variant["ndcg_at_10"] for variant in labeled]),
+        "child_recall_at_5": _average(
+            [variant["child_recall_at_5"] for variant in labeled]
         ),
-        "ndcg_at_10": _average(
-            [variant["ndcg_at_10"] for variant in labeled]
+        "child_precision_at_5": _average(
+            [variant["child_precision_at_5"] for variant in labeled]
+        ),
+        "child_hit_rate_at_5": _ratio(
+            sum(1 for variant in labeled if variant["child_hit_at_5"]),
+            len(labeled),
+        ),
+        "child_mrr_at_10": _average(
+            [variant["child_mrr_at_10"] for variant in labeled]
+        ),
+        "child_ndcg_at_10": _average(
+            [variant["child_ndcg_at_10"] for variant in labeled]
         ),
         "empty_evidence_accuracy": _ratio(
             sum(
                 1
                 for variant in unlabeled
-                if variant.get(
-                    "empty_evidence", not variant.get("retrieved", [])
-                )
+                if variant.get("empty_evidence", not variant.get("retrieved", []))
             ),
             len(unlabeled),
         ),
@@ -96,14 +112,21 @@ def _aggregate_groups(groups: Sequence[dict[str, Any]]) -> dict[str, Any]:
         "labeled_groups": len(labeled),
         "unlabeled_groups": len(unlabeled),
         "recall_at_5": _average([group["recall_at_5"] for group in labeled]),
-        "precision_at_5": _average(
-            [group["precision_at_5"] for group in labeled]
-        ),
-        "hit_rate_at_5": _average(
-            [group["hit_rate_at_5"] for group in labeled]
-        ),
+        "precision_at_5": _average([group["precision_at_5"] for group in labeled]),
+        "hit_rate_at_5": _average([group["hit_rate_at_5"] for group in labeled]),
         "mrr_at_10": _average([group["mrr_at_10"] for group in labeled]),
         "ndcg_at_10": _average([group["ndcg_at_10"] for group in labeled]),
+        "child_recall_at_5": _average(
+            [group["child_recall_at_5"] for group in labeled]
+        ),
+        "child_precision_at_5": _average(
+            [group["child_precision_at_5"] for group in labeled]
+        ),
+        "child_hit_rate_at_5": _average(
+            [group["child_hit_rate_at_5"] for group in labeled]
+        ),
+        "child_mrr_at_10": _average([group["child_mrr_at_10"] for group in labeled]),
+        "child_ndcg_at_10": _average([group["child_ndcg_at_10"] for group in labeled]),
         "empty_evidence_accuracy": _average(
             [group["empty_evidence_accuracy"] for group in unlabeled]
         ),
@@ -119,28 +142,33 @@ def _variant_totals(
     return {
         "variants": len(variants),
         "labeled_variants": len(labeled),
-        "recall_at_5": _average(
-            [variant["recall_at_5"] for variant in labeled]
-        ),
-        "precision_at_5": _average(
-            [variant["precision_at_5"] for variant in labeled]
-        ),
+        "recall_at_5": _average([variant["recall_at_5"] for variant in labeled]),
+        "precision_at_5": _average([variant["precision_at_5"] for variant in labeled]),
         "hit_rate_at_5": _average(
             [1.0 if variant["hit_at_5"] else 0.0 for variant in labeled]
         ),
-        "mrr_at_10": _average(
-            [variant["mrr_at_10"] for variant in labeled]
+        "mrr_at_10": _average([variant["mrr_at_10"] for variant in labeled]),
+        "ndcg_at_10": _average([variant["ndcg_at_10"] for variant in labeled]),
+        "child_recall_at_5": _average(
+            [variant["child_recall_at_5"] for variant in labeled]
         ),
-        "ndcg_at_10": _average(
-            [variant["ndcg_at_10"] for variant in labeled]
+        "child_precision_at_5": _average(
+            [variant["child_precision_at_5"] for variant in labeled]
+        ),
+        "child_hit_rate_at_5": _average(
+            [1.0 if variant["child_hit_at_5"] else 0.0 for variant in labeled]
+        ),
+        "child_mrr_at_10": _average(
+            [variant["child_mrr_at_10"] for variant in labeled]
+        ),
+        "child_ndcg_at_10": _average(
+            [variant["child_ndcg_at_10"] for variant in labeled]
         ),
         "empty_evidence_accuracy": _ratio(
             sum(
                 1
                 for variant in unlabeled
-                if variant.get(
-                    "empty_evidence", not variant.get("retrieved", [])
-                )
+                if variant.get("empty_evidence", not variant.get("retrieved", []))
             ),
             len(unlabeled),
         ),
@@ -155,9 +183,7 @@ def _language_metrics(
         language_groups: list[dict[str, Any]] = []
         for group_id, variants in grouped.items():
             selected = [
-                variant
-                for variant in variants
-                if variant["language"] == language
+                variant for variant in variants if variant["language"] == language
             ]
             if selected:
                 language_groups.append(_group_summary(group_id, selected))
@@ -169,6 +195,7 @@ def _language_metrics(
 def group_results(
     questions_payload: dict[str, Any],
     results_payload: dict[str, Any],
+    child_parent_map: dict[int, int],
 ) -> dict[str, Any]:
     """按独立问题聚合，并额外计算语言切片。"""
 
@@ -188,19 +215,34 @@ def group_results(
     for question_id, question in questions.items():
         if question_id not in results:
             continue
+        question = questions[question_id]
+        result = results[question_id]
+        child_metrics = calculate_ranking_metrics(
+            _child_ids(question),
+            _retrieved_child_ids(result),
+        )
+        parent_metrics = calculate_ranking_metrics(
+            _parent_ids(_child_ids(question), child_parent_map, question_id),
+            _retrieved_parent_ids(
+                _retrieved_child_ids(result),
+                child_parent_map,
+                question_id,
+            ),
+        )
         grouped[base_id(question_id)].append(
             {
-                **results[question_id],
+                **result,
                 "question_id": question_id,
                 "category": str(question["category"]),
                 "language": _question_language(question, default_language),
-                "labeled": bool(question.get("relevant_child_ids")),
+                "labeled": bool(_child_ids(question)),
+                **_metric_fields(parent_metrics),
+                **_child_metric_fields(child_metrics),
             }
         )
 
     groups = [
-        _group_summary(group_id, variants)
-        for group_id, variants in grouped.items()
+        _group_summary(group_id, variants) for group_id, variants in grouped.items()
     ]
     groups.sort(key=lambda item: int(re.sub(r"\D", "", item["group_id"]) or 0))
     category_metrics = {
@@ -215,9 +257,10 @@ def group_results(
         "corpus": questions_payload.get("corpus"),
         "chunker_version": questions_payload.get("chunker_version"),
         "snapshot": questions_payload.get("snapshot"),
+        "metric_unit": "parent",
+        "child_metrics_usage": "diagnostic_only",
         "group_definition": (
-            "题目 id 去掉末尾小写字母后缀后归为一组；"
-            "q01/q01a/q01b 视为同一个独立问题。"
+            "题目 id 去掉末尾小写字母后缀后归为一组；q01/q01a/q01b 视为同一个独立问题。"
         ),
         "totals": _aggregate_groups(groups),
         "variant_weighted_totals": _variant_totals(grouped),
@@ -227,6 +270,62 @@ def group_results(
         "extra_result_ids": extra,
         "groups": groups,
     }
+
+
+def _child_ids(question: dict[str, Any]) -> tuple[int, ...]:
+    return tuple(int(value) for value in question.get("relevant_child_ids", []))
+
+
+def _retrieved_child_ids(result: dict[str, Any]) -> tuple[int, ...]:
+    values = result.get("retrieved_child_ids", result.get("retrieved", []))
+    return tuple(int(value) for value in values)
+
+
+def _parent_ids(
+    child_ids: Sequence[int],
+    child_parent_map: dict[int, int],
+    question_id: str,
+) -> tuple[int, ...]:
+    missing = [child_id for child_id in child_ids if child_id not in child_parent_map]
+    if missing:
+        raise ValueError(f"题目 {question_id} 缺少 Child 到 Parent 映射: {missing}")
+    return tuple(dict.fromkeys(child_parent_map[child_id] for child_id in child_ids))
+
+
+def _retrieved_parent_ids(
+    child_ids: Sequence[int],
+    child_parent_map: dict[int, int],
+    question_id: str,
+) -> tuple[int, ...]:
+    missing = [child_id for child_id in child_ids if child_id not in child_parent_map]
+    if missing:
+        raise ValueError(f"结果 {question_id} 的返回 Child 缺少 Parent 映射: {missing}")
+    return tuple(dict.fromkeys(child_parent_map[child_id] for child_id in child_ids))
+
+
+def _metric_fields(metrics: RankingMetrics | None) -> dict[str, float | bool | None]:
+    if metrics is None:
+        return {
+            "recall_at_5": None,
+            "precision_at_5": None,
+            "hit_at_5": None,
+            "mrr_at_10": None,
+            "ndcg_at_10": None,
+        }
+    return {
+        "recall_at_5": metrics.recall_at_5,
+        "precision_at_5": metrics.precision_at_5,
+        "hit_at_5": metrics.hit_at_5,
+        "mrr_at_10": metrics.mrr_at_10,
+        "ndcg_at_10": metrics.ndcg_at_10,
+    }
+
+
+def _child_metric_fields(
+    metrics: RankingMetrics | None,
+) -> dict[str, float | bool | None]:
+    fields = _metric_fields(metrics)
+    return {f"child_{name}": value for name, value in fields.items()}
 
 
 def merge_result_payloads(paths: Sequence[Path]) -> dict[str, Any]:
@@ -271,6 +370,17 @@ def _print_metrics(label: str, metrics: dict[str, Any]) -> None:
 
 def _print_table(payload: dict[str, Any]) -> None:
     _print_metrics("全部独立问题", payload["totals"])
+    _print_metrics(
+        "Child 诊断",
+        payload["totals"]
+        | {
+            "recall_at_5": payload["totals"]["child_recall_at_5"],
+            "precision_at_5": payload["totals"]["child_precision_at_5"],
+            "hit_rate_at_5": payload["totals"]["child_hit_rate_at_5"],
+            "mrr_at_10": payload["totals"]["child_mrr_at_10"],
+            "ndcg_at_10": payload["totals"]["child_ndcg_at_10"],
+        },
+    )
     _print_metrics("按问法加权", payload["variant_weighted_totals"])
     print()
     for language, metrics in payload["language_metrics"].items():
@@ -297,11 +407,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--rerank-model")
     parser.add_argument("--source-commit")
     parser.add_argument("--note")
+    parser.add_argument(
+        "--baseline-status",
+        choices=("provisional", "accepted"),
+        default="provisional",
+    )
     args = parser.parse_args(argv)
 
     questions_payload = json.loads(args.questions.read_text(encoding="utf-8"))
     results_payload = merge_result_payloads(args.results)
-    payload = group_results(questions_payload, results_payload)
+    map_path = args.questions.parent / str(questions_payload["child_parent_map_file"])
+    payload = group_results(
+        questions_payload,
+        results_payload,
+        load_child_parent_map(map_path),
+    )
     payload.update(
         {
             "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -311,8 +431,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "embedding_model": args.embedding_model,
             "rerank_model": args.rerank_model,
             "source_commit": args.source_commit,
-            "metric_source": "final_evidences",
-            "fused_ids_usage": "diagnostic_only",
+            "metric_source": "final_parent_evidences",
+            "child_metrics_usage": "diagnostic_only",
+            "child_parent_map_file": questions_payload["child_parent_map_file"],
+            "baseline_status": args.baseline_status,
             "note": args.note,
         }
     )

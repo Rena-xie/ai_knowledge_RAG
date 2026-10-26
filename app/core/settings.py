@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     rerank_timeout_s: int = 10
     rerank_max_retries: int = 1
 
+    # API 成本观测；价格为空表示供应商单价未知。
+    api_provider: str = "siliconflow"
+    api_cost_currency: str = "CNY"
+    embedding_input_price_per_million: float | None = None
+    rerank_input_price_per_million: float | None = None
+    api_cost_budget_24h: float | None = None
+
     # 切块与上下文
     parent_max_chars: int = 3000
     child_target_chars: int = 900

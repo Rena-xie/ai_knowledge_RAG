@@ -61,3 +61,20 @@ def test_oversized_chunked_body_is_rejected(client: TestClient) -> None:
     assert response.status_code == 413
     assert response.json()["error"]["code"] == "REQUEST_TOO_LARGE"
     assert len(response.headers["X-Request-ID"]) == 32
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://user:secret@example.com/a",
+        "http://[::1",
+    ],
+)
+def test_invalid_url_does_not_echo_secret(
+    client: TestClient,
+    url: str,
+) -> None:
+    response = client.post("/api/v1/sources", json={"url": url})
+
+    assert response.status_code == 400
+    assert "secret" not in response.text

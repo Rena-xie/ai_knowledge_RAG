@@ -8,6 +8,13 @@ from collections.abc import Sequence
 import httpx
 
 from app.core.errors import ErrorCode
+from app.domain.cost import (
+    ApiUsageAttempt,
+    CostBudgetExceeded,
+    CostUsageObserver,
+    estimate_input_units,
+    extract_usage_tokens,
+)
 
 MAX_BATCH_SIZE = 32
 RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
@@ -38,6 +45,7 @@ class EmbeddingClient:
         backoff_s: float = 1.0,
         batch_size: int = MAX_BATCH_SIZE,
         transport: httpx.BaseTransport | None = None,
+        usage_observer: CostUsageObserver | None = None,
     ) -> None:
         self._api_base = api_base.rstrip("/")
         self._api_key = api_key
@@ -47,6 +55,7 @@ class EmbeddingClient:
         self._backoff_s = backoff_s
         self._batch_size = batch_size
         self._client = httpx.Client(timeout=timeout_s, transport=transport)
+        self._usage_observer = usage_observer
 
     def embed(
         self, texts: Sequence[str], *, budget_s: float | None = None
@@ -74,7 +83,9 @@ class EmbeddingClient:
     ) -> list[list[float]]:
         payload = {"model": self._model, "input": list(batch)}
         last_error: EmbeddingError | None = None
-        for attempt in range(self._max_retries + 1):
+        estimated_units = estimate_input_units(tuple(batch))
+        for attempt in range(1, self._max_retries + 2):
+            self._check_budget(estimated_units)
             try:
                 response = self._client.post(
                     f"{self._api_base}/embeddings",
@@ -84,19 +95,104 @@ class EmbeddingClient:
                 )
             except httpx.TimeoutException as error:
                 last_error = EmbeddingError(f"Embedding 调用超时: {error}")
+                self._record_attempt(
+                    estimated_units,
+                    "estimated_characters",
+                    success=False,
+                    attempt=attempt,
+                    error_code=ErrorCode.EMBEDDING_FAILED.value,
+                    timed_out=True,
+                )
             except httpx.HTTPError as error:
                 last_error = EmbeddingError(f"Embedding 调用失败: {error}")
+                self._record_attempt(
+                    estimated_units,
+                    "estimated_characters",
+                    success=False,
+                    attempt=attempt,
+                    error_code=ErrorCode.EMBEDDING_FAILED.value,
+                )
             else:
                 if response.status_code == 200:
-                    return self._parse(response)
+                    try:
+                        vectors, input_units = self._parse(response)
+                    except EmbeddingError:
+                        self._record_attempt(
+                            estimated_units,
+                            "estimated_characters",
+                            success=False,
+                            attempt=attempt,
+                            error_code=ErrorCode.EMBEDDING_FAILED.value,
+                        )
+                        raise
+                    usage_source = (
+                        "provider"
+                        if input_units is not None
+                        else "estimated_characters"
+                    )
+                    recorded_units = (
+                        input_units
+                        if input_units is not None
+                        else estimated_units
+                    )
+                    self._record_attempt(
+                        recorded_units,
+                        usage_source,
+                        success=True,
+                        attempt=attempt,
+                    )
+                    return vectors
                 last_error = EmbeddingError(
                     f"Embedding 返回 HTTP {response.status_code}"
                 )
+                self._record_attempt(
+                    estimated_units,
+                    "estimated_characters",
+                    success=False,
+                    attempt=attempt,
+                    error_code=ErrorCode.EMBEDDING_FAILED.value,
+                )
                 if response.status_code not in RETRYABLE_STATUSES:
                     raise last_error
-            if attempt < self._max_retries and self._backoff_s:
-                self._sleep_backoff(attempt, deadline)
+            if attempt <= self._max_retries and self._backoff_s:
+                self._sleep_backoff(attempt - 1, deadline)
         raise last_error or EmbeddingError("Embedding 调用失败")
+
+    def _check_budget(self, input_units: int) -> None:
+        if self._usage_observer is None:
+            return
+        try:
+            self._usage_observer.check_budget("embedding", input_units)
+        except CostBudgetExceeded as error:
+            raise EmbeddingError(
+                str(error),
+                code=ErrorCode.COST_BUDGET_EXCEEDED,
+            ) from error
+
+    def _record_attempt(
+        self,
+        input_units: int,
+        usage_source: str,
+        *,
+        success: bool,
+        attempt: int,
+        error_code: str | None = None,
+        timed_out: bool = False,
+    ) -> None:
+        if self._usage_observer is None:
+            return
+        self._usage_observer.record_attempt(
+            ApiUsageAttempt(
+                operation="embedding",
+                model=self._model,
+                input_units=input_units,
+                usage_source=usage_source,
+                success=success,
+                attempt=attempt,
+                error_code=error_code,
+                timed_out=timed_out,
+            )
+        )
 
     def _next_timeout(self, deadline: float | None) -> float:
         if deadline is None:
@@ -116,9 +212,15 @@ class EmbeddingClient:
         time.sleep(delay)
 
     @staticmethod
-    def _parse(response: httpx.Response) -> list[list[float]]:
+    def _parse(
+        response: httpx.Response,
+    ) -> tuple[list[list[float]], int | None]:
         try:
-            items = sorted(response.json()["data"], key=lambda item: item["index"])
-            return [[float(value) for value in item["embedding"]] for item in items]
+            payload = response.json()
+            items = sorted(payload["data"], key=lambda item: item["index"])
+            vectors = [
+                [float(value) for value in item["embedding"]] for item in items
+            ]
+            return vectors, extract_usage_tokens(payload)
         except (KeyError, TypeError, ValueError) as error:
             raise EmbeddingError(f"Embedding 响应格式不正确: {error}") from error

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 
 from fastapi import APIRouter, Query, Request, Response
 
+from app.api.costs import cost_bucket_response
 from app.api.deps import Container
 from app.api.schemas import (
     IngestionCreateRequest,
@@ -16,6 +18,7 @@ from app.api.schemas import (
     IngestionJobSummaryResponse,
     SkippedItemResponse,
 )
+from app.domain.cost import CostAggregate
 from app.services.ingestion_jobs import (
     TERMINAL_JOB_STATUSES,
     JobCreateResult,
@@ -69,7 +72,10 @@ def get_ingestion(
     ):
         time.sleep(0.2)
         view = container.job_service.get_job(job_id)
-    return _job_response(view)
+    return _job_response(
+        view,
+        container.cost_service.summary_for_job(job_id),
+    )
 
 
 @router.get("", response_model=IngestionJobListResponse)
@@ -124,7 +130,10 @@ def _create_response(result: JobCreateResult) -> IngestionCreateResponse:
     )
 
 
-def _job_response(view: JobView) -> IngestionJobResponse:
+def _job_response(
+    view: JobView,
+    costs: Sequence[CostAggregate],
+) -> IngestionJobResponse:
     return IngestionJobResponse(
         job_id=view.job_id,
         status=view.status,
@@ -137,6 +146,7 @@ def _job_response(view: JobView) -> IngestionJobResponse:
         finished_at=view.finished_at,
         items=[_item_response(item) for item in view.items],
         items_truncated=view.items_truncated,
+        costs=[cost_bucket_response(cost) for cost in costs],
     )
 
 

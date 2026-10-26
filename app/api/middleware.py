@@ -14,6 +14,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.api.errors import error_payload
+from app.core.context import bind_request_id
 from app.core.errors import ErrorCode
 from app.core.settings import Settings, get_settings
 
@@ -33,22 +34,23 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         request_id = request.headers.get(REQUEST_ID_HEADER) or uuid.uuid4().hex
         request.state.request_id = request_id
 
-        started = time.perf_counter()
-        response = await call_next(request)
-        duration_ms = round((time.perf_counter() - started) * 1000, 2)
-        response.headers[REQUEST_ID_HEADER] = request_id
-        logger.info(
-            "请求完成 %s %s -> %s",
-            request.method,
-            request.url.path,
-            response.status_code,
-            extra={
-                "request_id": request_id,
-                "stage": "http",
-                "duration_ms": duration_ms,
-            },
-        )
-        return response
+        with bind_request_id(request_id):
+            started = time.perf_counter()
+            response = await call_next(request)
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            response.headers[REQUEST_ID_HEADER] = request_id
+            logger.info(
+                "请求完成 %s %s -> %s",
+                request.method,
+                request.url.path,
+                response.status_code,
+                extra={
+                    "request_id": request_id,
+                    "stage": "http",
+                    "duration_ms": duration_ms,
+                },
+            )
+            return response
 
 
 class BodySizeLimitMiddleware:

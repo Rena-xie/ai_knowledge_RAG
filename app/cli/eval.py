@@ -25,9 +25,7 @@ DEFAULT_QUESTIONS = Path("tests/evals/questions.json")
 DEFAULT_OUTPUT_DIR = Path("tests/evals/results")
 DEFAULT_WORKDIR_NAME = "eval-kb"
 
-_GITHUB_BLOB = re.compile(
-    r"https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)"
-)
+_GITHUB_BLOB = re.compile(r"https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)")
 
 
 def default_workdir() -> Path:
@@ -60,19 +58,15 @@ def _github_blob_parts(url: str) -> tuple[str, str, str, str] | None:
     return match.group(1), match.group(2), match.group(3), match.group(4)
 
 
-def fetch_github_markdown(
-    client: httpx.Client, url: str
-) -> tuple[str, str | None]:
-    """通过 GitHub API 读取官方仓库 Markdown，绕开 HTML 页面抓取。”
-    """
+def fetch_github_markdown(client: httpx.Client, url: str) -> tuple[str, str | None]:
+    """通过 GitHub API 读取官方仓库 Markdown，绕开 HTML 页面抓取。”"""
 
     parts = _github_blob_parts(url)
     if parts is None:
         raise ValueError(f"不是 GitHub blob 地址: {url}")
     owner, repo, branch, path = parts
     response = client.get(
-        f"https://api.github.com/repos/{owner}/{repo}/contents/"
-        f"{quote(path, safe='/')}",
+        f"https://api.github.com/repos/{owner}/{repo}/contents/{quote(path, safe='/')}",
         params={"ref": branch},
         headers={
             "Accept": "application/vnd.github+json",
@@ -86,11 +80,7 @@ def fetch_github_markdown(
         raise ValueError(f"GitHub API 未返回 content: {url}")
     markdown = base64.b64decode(encoded).decode("utf-8")
     title = next(
-        (
-            line[2:].strip()
-            for line in markdown.splitlines()
-            if line.startswith("# ")
-        ),
+        (line[2:].strip() for line in markdown.splitlines() if line.startswith("# ")),
         None,
     )
     return markdown, title
@@ -114,9 +104,7 @@ def build_corpus_container(urls: Sequence[str], workdir: Path) -> Container:
         for index, url in enumerate(urls, start=1):
             try:
                 if _github_blob_parts(url) is not None:
-                    markdown, title = fetch_github_markdown(
-                        github_client, url
-                    )
+                    markdown, title = fetch_github_markdown(github_client, url)
                     result = container.ingestion_service.ingest_markdown(
                         url, markdown, title=title
                     )
@@ -128,10 +116,7 @@ def build_corpus_container(urls: Sequence[str], workdir: Path) -> Container:
                 continue
             except Exception as error:  # noqa: BLE001 - 单个页面失败继续
                 failed.append((url, type(error).__name__))
-                print(
-                    f"[{index}/{total}] FAILED "
-                    f"{type(error).__name__}: {error} {url}"
-                )
+                print(f"[{index}/{total}] FAILED {type(error).__name__}: {error} {url}")
                 continue
             print(
                 f"[{index}/{total}] {result.status} "
@@ -184,9 +169,7 @@ def run_eval(
 ) -> int:
     """执行检索评测并写出结果 JSON。"""
 
-    parser = argparse.ArgumentParser(
-        prog="run_eval", description="运行检索评测"
-    )
+    parser = argparse.ArgumentParser(prog="run_eval", description="运行检索评测")
     parser.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
     parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
     parser.add_argument(
@@ -238,20 +221,20 @@ def run_eval(
                 "current-db"
                 if args.use_current_db
                 else str(
-                    args.workdir
-                    if args.workdir is not None
-                    else default_workdir()
+                    args.workdir if args.workdir is not None else default_workdir()
                 )
             ),
             "rerank_enabled": get_settings().rerank_enabled,
             "metric_definition": {
-                "recall_at_5": "命中的相关 child 数 / 该题全部相关 child 数",
-                "hit_rate_at_5": "前 5 条是否至少命中一个相关 child",
-                "precision_at_5": "命中的相关 child 数 / 5",
-                "mrr_at_10": "第一个相关 child 的倒数排名",
-                "ndcg_at_10": "按相关标注计算的排序增益",
+                "metric_unit": "最终 Parent 证据",
+                "recall_at_5": "命中的相关 parent 数 / 该题全部相关 parent 数",
+                "hit_rate_at_5": "前 5 条是否至少命中一个相关 parent",
+                "precision_at_5": "命中的相关 parent 数 / 5",
+                "mrr_at_10": "第一个相关 parent 的倒数排名",
+                "ndcg_at_10": "按相关 parent 标注计算的排序增益",
                 "empty_evidence_accuracy": "无答案题是否返回空最终证据",
-                "retrieved": "最终 evidences 的 child_id；fused_ids 仅用于诊断",
+                "retrieved_parent_ids": "最终 evidences 的 parent_id",
+                "retrieved_child_ids": "最终 evidences 的 child_id，仅用于诊断",
             },
             **report.as_dict(),
         }

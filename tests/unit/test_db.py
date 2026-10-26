@@ -58,6 +58,7 @@ def test_creates_all_tables(engine: Engine) -> None:
         "tags",
         "source_tags",
         "job_idempotency_keys",
+        "api_cost_events",
     } <= tables
 
 
@@ -382,7 +383,7 @@ def test_migrates_v3_database_identity_and_idempotency(
 
     session_factory = create_session_factory(engine)
     with session_factory() as session:
-        assert session.get(IndexMeta, "schema_version").value == "4"
+        assert session.get(IndexMeta, "schema_version").value == SCHEMA_VERSION
         source = session.get(KnowledgeSource, 1)
         assert source is not None
         assert source.identity_status == "legacy_unverified"

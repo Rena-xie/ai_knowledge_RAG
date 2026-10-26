@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.costs import router as costs_router
 from app.api.deps import Container
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
@@ -65,6 +66,7 @@ def create_app() -> FastAPI:
     app.include_router(ingestions_router)
     app.include_router(search_router)
     app.include_router(stats_router)
+    app.include_router(costs_router)
     return app
 
 

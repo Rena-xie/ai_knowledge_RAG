@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import (
     Boolean,
     Engine,
+    Float,
     ForeignKey,
     Index,
     Text,
@@ -31,7 +32,7 @@ from sqlalchemy.orm import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_BUSY_TIMEOUT_MS = 5000
-SCHEMA_VERSION = "4"
+SCHEMA_VERSION = "5"
 DEFAULT_COLLECTION_ID = "default"
 DEFAULT_COLLECTION_NAME = "默认知识库"
 
@@ -285,6 +286,36 @@ class IndexMeta(Base):
     value: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class ApiCostEvent(Base):
+    """外部 API 单次 HTTP 尝试的用量与成本事件。"""
+
+    __tablename__ = "api_cost_events"
+    __table_args__ = (
+        Index("ix_api_cost_events_created_at", "created_at"),
+        Index("ix_api_cost_events_job_id", "job_id"),
+        Index("ix_api_cost_events_request_id", "request_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    operation: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    input_units: Mapped[int] = mapped_column(nullable=False)
+    usage_source: Mapped[str] = mapped_column(Text, nullable=False)
+    price_per_million: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(Text, nullable=False)
+    cost: Mapped[float | None] = mapped_column(Float)
+    success: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    request_count: Mapped[int] = mapped_column(nullable=False, default=1)
+    attempt: Mapped[int] = mapped_column(nullable=False, default=1)
+    timed_out: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    error_code: Mapped[str | None] = mapped_column(Text)
+    request_id: Mapped[str | None] = mapped_column(Text)
+    job_id: Mapped[str | None] = mapped_column(Text)
+    source_id: Mapped[int | None] = mapped_column()
+
+
 def create_db_engine(
     sqlite_path: Path, *, busy_timeout_ms: int = DEFAULT_BUSY_TIMEOUT_MS
 ) -> Engine:
@@ -359,6 +390,13 @@ def _migrate_schema(engine: Engine) -> None:
                 session.commit()
         version = "3"
     if version == "3":
+        with Session(engine) as session:
+            meta = session.get(IndexMeta, "schema_version")
+            if meta is not None:
+                meta.value = "4"
+                session.commit()
+        version = "4"
+    if version == "4":
         with Session(engine) as session:
             meta = session.get(IndexMeta, "schema_version")
             if meta is not None:

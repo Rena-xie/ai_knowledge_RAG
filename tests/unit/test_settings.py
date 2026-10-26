@@ -38,6 +38,10 @@ def test_defaults_match_design_doc() -> None:
     assert settings.fetch_user_agent.startswith("ai-knowledge-rag/")
     assert settings.ingest_lock_timeout_s == 30
     assert settings.max_request_bytes == 1048576
+    assert settings.api_cost_currency == "CNY"
+    assert settings.embedding_input_price_per_million is None
+    assert settings.rerank_input_price_per_million is None
+    assert settings.api_cost_budget_24h is None
     assert settings.app_host == "127.0.0.1"
     assert settings.app_port == 8000
     assert DEFAULT_LOG_FILE == "data/logs/app.log"

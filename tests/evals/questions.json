@@ -1,9 +1,10 @@
 {
-  "version": 7,
+  "version": 8,
   "corpus": "tests/evals/corpus.json",
   "chunker_version": "v1",
   "snapshot": "2026-10-19",
   "default_language": "zh",
+  "child_parent_map_file": "child_parent_map.json",
   "note": "原 22 题及同义改写基于 2026-10-15 语料；新增 42 道官方文档题基于 2026-10-19 eval-kb-v3 快照；跨章节题补充同章节相关 child_id；无答案题改为语料外主题；2026-10-20 新增 q65-q84 共 20 个独立主题（跨章节 10、代码查询 10）。2026-10-26 增加 10 个英文和 10 个中英混合变体，复用所属独立问题的相关 Child。语料或切块变化后需重新标注。",
   "questions": [
     {

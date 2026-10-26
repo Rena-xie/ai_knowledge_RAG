@@ -197,6 +197,28 @@ def test_invalid_url_is_partial_failure(client: TestClient) -> None:
     assert invalid["error_code"] == ErrorCode.INVALID_REQUEST.value
 
 
+def test_credential_url_is_redacted_in_job_response(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v1/ingestions",
+        json={
+            "urls": [
+                "https://user:secret@example.com/bad",
+                "https://example.com/b",
+            ]
+        },
+    )
+    assert response.status_code == 202
+
+    job = wait_for_job(client, response.json()["job_id"])
+
+    assert "secret" not in str(job)
+    invalid = next(item for item in job["items"] if item["status"] == "failed")
+    assert invalid["url"] == "https://example.com/bad"
+    assert invalid["error_message"] == "URL 不允许携带凭据"
+
+
 def test_job_not_found(client: TestClient) -> None:
     response = client.get("/api/v1/ingestions/job_missing")
 

@@ -26,6 +26,7 @@ Chroma 是可随时重建的派生索引；每条证据包含真实来源、Chil
 | **来源管理** | 分页列表、详情与状态查询、只读正文/Parent/Child 预览、错误码回传、级联删除、重复 URL 幂等处理 |
 | **混合检索** | Dense + BM25 双路召回，RRF 融合 + Cross-Encoder rerank（失败回退 RRF），字面量查询按 BM25 名次提权；支持相关性门槛与单路降级 |
 | **可追溯证据** | 返回来源、Child、最终 URL、标题路径、分值与原文；Agent 可据此生成自己的回答和引用 |
+| **API 成本观测** | 记录 Embedding/rerank 请求、输入量、重试、失败、超时和配置单价估算；提供滚动 24 小时预算门禁 |
 | **可运维** | 启动自检、健康检查实际探活 SQLite/FTS5/Chroma、索引全量/按来源重建、一致性校验、数据备份、滚动日志、`request_id` 全链路追踪 |
 | **工程质量** | 单元、集成、E2E、中英文正文黄金集、检索评测、Ruff、mypy、覆盖率门禁和 GitHub Actions CI |
 
@@ -42,6 +43,7 @@ flowchart TB
         SRC["/api/v1/sources<br/>来源收录与管理"]
         INGEST["/api/v1/ingestions<br/>批量异步入库"]
         SEARCH["/api/v1/search<br/>检索调试"]
+        COSTS["/api/v1/costs<br/>API 成本汇总"]
         HEALTH["/health/live · /health/ready"]
     end
 
@@ -66,7 +68,7 @@ flowchart TB
         EMB["Embedding API<br/>bge-m3"]
     end
 
-    UI --> SRC & INGEST & SEARCH & HEALTH
+    UI --> SRC & INGEST & SEARCH & COSTS & HEALTH
     AGENT -.-> INGEST & SEARCH
     SRC --> S1 --> S2
     INGEST --> S5 --> S2
@@ -112,6 +114,7 @@ flowchart TB
 │   │   ├── ingestions.py       # 异步入库任务创建、查询、重试
 │   │   ├── stats.py            # 入库任务统计
 │   │   ├── search.py           # 检索调试接口
+│   │   ├── costs.py            # API 成本聚合接口
 │   │   ├── health.py           # 存活 / 就绪检查
 │   │   ├── middleware.py       # request_id、请求体大小限制
 │   │   ├── errors.py           # 统一错误响应
@@ -123,8 +126,10 @@ flowchart TB
 │   │   ├── ingestion_jobs.py   # 批量异步任务、单线程 Worker、恢复
 │   │   ├── retrieval.py        # 双路召回 → RRF → rerank → 字面量提权 → 父级上下文
 │   │   ├── evaluation.py       # 检索指标计算
+│   │   ├── cost.py             # API 用量、成本聚合和预算门禁
 │   │   └── maintenance.py      # 重建索引、一致性校验、备份
 │   ├── domain/                 # 领域逻辑层：纯函数，无 I/O
+│   │   ├── cost.py             # API 用量与成本数据契约
 │   │   ├── chunking.py         # 结构感知 Parent / Child 切块
 │   │   ├── rrf.py              # 倒数排名融合
 │   │   ├── literal.py          # 代码字面量与路径识别
@@ -172,14 +177,16 @@ flowchart TB
 
 ## 评测结果
 
-在 128 题（84 个独立问题）检索评测集上，当前实现的结果如下：
+正式 Parent 基线使用清理重复来源后的独立评测副本，包含 148 个语言问法、
+84 个独立问题。Precision@5 因标注密度限制只作观察，不作为交付门禁：
 
-| 口径 | Recall@5 | HitRate@5 | Precision@5 | MRR@10 | nDCG@10 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 128 题按题加权 | 0.7086 | 0.8673 | 0.2212 | 0.7106 | 0.6645 |
-| 84 个独立问题 | 0.7738 | 0.8861 | 0.2152 | 0.7574 | 0.7282 |
+| 口径 | Recall@5 | Precision@5 | HitRate@5 | MRR@10 | nDCG@10 | 无答案 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Parent 正式指标 | 0.8368 | 0.2005（观察） | 0.8734 | 0.8009 | 0.7956 | 1.0000 |
+| Child 诊断指标 | 0.6379 | 0.1686 | 0.7519 | 0.6842 | 0.6226 | 1.0000 |
 
-标准 Recall@5 尚未达到 0.80 目标。历史生成链路中的引用和无答案指标不属于当前 RAG 验收。
+正式基线：
+`tests/evals/results/2026-10-26-v2-parent-clean-r2-148q.json`。
 
 ## 部署指南
 
@@ -220,6 +227,10 @@ EMBEDDING_API_KEY=你的 SiliconFlow Key
 > `.env.example` 默认开启 rerank；代码安全默认关闭，未配置时不会访问 rerank API。
 > 未单独配置 `RERANK_API_KEY` 时会复用 Embedding Key；关闭后检索回退到 RRF 排序。
 
+成本观测默认不假定供应商价格。填写 `*_INPUT_PRICE_PER_MILLION` 后才计算配置单价
+估算；“无 usage”回退按字符数估算，不等同于供应商最终 token 账单。设置
+`API_COST_BUDGET_24H` 时必须同时配置相应单价。
+
 ### 3. 启动服务
 
 ```powershell
@@ -254,8 +265,8 @@ curl.exe -X POST http://127.0.0.1:8000/api/v1/search `
   -d '{"question":"这个页面讲了什么？"}'
 ```
 
-`/api/v1/search` 返回 Dense、BM25、融合结果、证据和耗时。外部 Agent 使用这些证据
-调用自己的 LLM；RAG 不生成答案。
+`/api/v1/search` 返回 Dense、BM25、融合结果、证据、耗时和本次请求的成本桶。
+外部 Agent 使用这些证据调用自己的 LLM；RAG 不生成答案。
 
 > 示例使用单引号包裹 JSON（PowerShell 7 / bash 通用）。Windows PowerShell 5.1 若出现
 > 引号被吞，改用 `-d "{\"url\":\"https://example.com\"}"` 或直接在 `/docs` 页面调试。
@@ -288,6 +299,9 @@ curl.exe "http://127.0.0.1:8000/api/v1/sources/12/content?page=1&size=20"
 
 # 近 24 小时任务统计
 curl.exe "http://127.0.0.1:8000/api/v1/stats/ingestions?since_hours=24"
+
+# 近 24 小时 API 用量与配置单价估算
+curl.exe "http://127.0.0.1:8000/api/v1/costs?since_hours=24"
 ```
 
 ### 5. 常用运维命令
@@ -324,6 +338,14 @@ uv run mypy
 | 入库返回 `INGEST_BUSY` / `INGESTION_QUEUE_FULL` | 同步 `/sources` 入库串行；异步入库队列满。等待当前任务完成或稍后重试。 |
 | 页面抓取返回 `ROBOTS_DISALLOWED` | 目标站点 `robots.txt` 禁止抓取，属于预期行为。 |
 | `/search` 返回空 `evidences` | 检索最高相似度低于 `MIN_DENSE_SIMILARITY`（默认 0.58）；确认库内已收录相关内容，换 Embedding 模型后需重新校准该阈值。 |
+| 成本费用为 `null` | 未配置模型单价；填写 `*_INPUT_PRICE_PER_MILLION` 后按配置单价估算。 |
+| 成本用量标记为字符估算 | 供应商未返回 usage；字符数只用于保守估算，不是最终 token 账单。 |
+
+已知限制：
+
+- 当前无鉴权，只能用于单用户本机，不得公网部署。
+- 成本是配置单价估算；迁移前调用没有历史事件，预算检查存在小幅并发竞态窗口。
+- RAG 不调用 LLM；外部 Agent 的模型成本不在本项目统计范围内。
 
 ## 文档与许可
 

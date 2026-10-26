@@ -7,6 +7,7 @@ import pytest
 from app.services.evaluation import (
     EvalQuestion,
     EvaluationRunner,
+    load_child_parent_map,
     load_questions,
 )
 from app.services.retrieval import Evidence, RetrievalResult
@@ -32,7 +33,7 @@ class FakeRetrieval:
                 Evidence(
                     source_id=1,
                     child_id=child_id,
-                    parent_id=1,
+                    parent_id=child_id,
                     title=None,
                     url="https://example.com",
                     heading_path="heading",
@@ -57,8 +58,8 @@ def build_runner() -> EvaluationRunner:
 
 def test_reports_metrics() -> None:
     questions = [
-        EvalQuestion("q1", "专有名词", "命中题", (9,)),
-        EvalQuestion("q2", "语义改写", "未命中题", (5,)),
+        EvalQuestion("q1", "专有名词", "命中题", (9,), (9,)),
+        EvalQuestion("q2", "语义改写", "未命中题", (5,), (5,)),
         EvalQuestion("q3", "无答案", "无答案题"),
     ]
 
@@ -90,9 +91,7 @@ def test_recall_at_5_uses_all_relevant_chunks() -> None:
     retrieval = FakeRetrieval({"多答案题": (7, 8, 9)})
     runner = EvaluationRunner(retrieval_service=retrieval)
 
-    report = runner.run(
-        [EvalQuestion("q1", "跨章节", "多答案题", (8, 10))]
-    )
+    report = runner.run([EvalQuestion("q1", "跨章节", "多答案题", (8, 10), (8, 10))])
 
     assert report.recall_at_5 == pytest.approx(0.5)
     assert report.hit_rate_at_5 == pytest.approx(1.0)
@@ -102,9 +101,7 @@ def test_recall_at_5_uses_all_relevant_chunks() -> None:
 
 
 def test_report_serializes_to_dict() -> None:
-    report = build_runner().run(
-        [EvalQuestion("q1", "专有名词", "命中题", (7,))]
-    )
+    report = build_runner().run([EvalQuestion("q1", "专有名词", "命中题", (7,), (7,))])
 
     payload = report.as_dict()
 
@@ -115,6 +112,8 @@ def test_report_serializes_to_dict() -> None:
     assert payload["results"][0]["recall_at_5"] == 1.0
     assert payload["results"][0]["language"] == "zh"
     assert payload["results"][0]["fused_ids"] == [7, 8, 9]
+    assert payload["results"][0]["retrieved_child_ids"] == [7, 8, 9]
+    assert payload["results"][0]["retrieved_parent_ids"] == [7, 8, 9]
     assert payload["results"][0]["hit_at_5"] is True
     assert payload["precision_at_5"] == pytest.approx(0.2)
     assert payload["mrr_at_10"] == 1.0
@@ -136,7 +135,7 @@ def test_runner_retrieves_once_per_question() -> None:
     retrieval = FakeRetrieval({"命中题": (7, 8, 9)})
     runner = EvaluationRunner(retrieval_service=retrieval)
 
-    report = runner.run([EvalQuestion("q1", "专有名词", "命中题", (7,))])
+    report = runner.run([EvalQuestion("q1", "专有名词", "命中题", (7,), (7,))])
 
     assert retrieval.calls == ["命中题"]
     assert report.results[0].max_similarity == pytest.approx(0.7)
@@ -161,16 +160,61 @@ def test_empty_evidence_ignores_nonempty_fused_candidates() -> None:
     report = runner.run([EvalQuestion("q1", "无答案", "无答案题")])
 
     assert report.empty_evidence_accuracy == 1.0
-    assert report.results[0].retrieved == ()
+    assert report.results[0].retrieved_child_ids == ()
+    assert report.results[0].retrieved_parent_ids == ()
     assert report.results[0].fused_ids == (1, 2)
+
+
+def test_parent_metric_matches_sibling_child() -> None:
+    class SiblingRetrieval:
+        def search(self, _question: str) -> RetrievalResult:
+            return RetrievalResult(
+                evidences=(
+                    Evidence(
+                        source_id=1,
+                        child_id=11,
+                        parent_id=4,
+                        title=None,
+                        url="https://example.com",
+                        heading_path="heading",
+                        text="完整 Parent 正文",
+                        score=1.0,
+                    ),
+                ),
+                dense_ids=(11,),
+                bm25_ids=(11,),
+                fused_ids=(11,),
+                max_similarity=0.7,
+            )
+
+    report = EvaluationRunner(retrieval_service=SiblingRetrieval()).run(
+        [
+            EvalQuestion(
+                "q1",
+                "专有名词",
+                "问题",
+                relevant_child_ids=(10,),
+                relevant_parent_ids=(4,),
+            )
+        ]
+    )
+
+    assert report.results[0].recall_at_5 == 1.0
+    assert report.results[0].child_recall_at_5 == 0.0
 
 
 def test_load_questions_reads_json(tmp_path: Path) -> None:
     path = tmp_path / "questions.json"
+    map_path = tmp_path / "child_parent_map.json"
+    map_path.write_text(
+        '{"child_parent_ids": {"3": 30, "4": 40}}',
+        encoding="utf-8",
+    )
     path.write_text(
         """
         {
           "version": 1,
+          "child_parent_map_file": "child_parent_map.json",
           "questions": [
             {"id": "q1", "category": "专有名词", "question": "问题",
              "relevant_child_ids": [3, 4]},
@@ -185,15 +229,22 @@ def test_load_questions_reads_json(tmp_path: Path) -> None:
 
     assert [item.id for item in questions] == ["q1", "q2"]
     assert questions[0].relevant_child_ids == (3, 4)
+    assert questions[0].relevant_parent_ids == (30, 40)
     assert questions[1].relevant_child_ids == ()
 
 
 def test_load_questions_rejects_duplicate_ids(tmp_path: Path) -> None:
     path = tmp_path / "questions.json"
+    map_path = tmp_path / "child_parent_map.json"
+    map_path.write_text(
+        '{"child_parent_ids": {"3": 30}}',
+        encoding="utf-8",
+    )
     path.write_text(
         """
         {
           "version": 1,
+          "child_parent_map_file": "child_parent_map.json",
           "questions": [
             {"id": "q1", "category": "专有名词", "question": "问题一"},
             {"id": "q1", "category": "语义改写", "question": "问题二"}
@@ -205,3 +256,16 @@ def test_load_questions_rejects_duplicate_ids(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         load_questions(path)
+
+
+def test_load_child_parent_map_rejects_duplicate_child(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "child_parent_map.json"
+    path.write_text(
+        '{"child_parent_ids": {"3": 30, "3": 31}}',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="重复键"):
+        load_child_parent_map(path)

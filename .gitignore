@@ -35,7 +35,7 @@ _bmad-output/
 # 内部质量评价结果（保留本地，不公开）
 项目质量评价结果_*.md
 
-# 历史评测结果（只公开当前最终结果）
+# 评测结果（公开当前基线与测试契约依赖）
 tests/evals/results/*.json
 !tests/evals/results/2026-10-20-v2-128q-literal.json
 !tests/evals/results/2026-10-20-v2-128q-literal-grouped.json
@@ -43,3 +43,6 @@ tests/evals/results/*.json
 !tests/evals/results/2026-10-26-v2-core-148q-fused-candidates.invalid.json
 !tests/evals/results/2026-10-26-v2-evidence-148q.json
 !tests/evals/results/2026-10-26-v2-evidence-148q-baseline.json
+!tests/evals/results/2026-10-26-v2-parent-evidence-148q-baseline.json
+!tests/evals/results/2026-10-26-v2-clean-r2-148q.json
+!tests/evals/results/2026-10-26-v2-parent-clean-r2-148q.json

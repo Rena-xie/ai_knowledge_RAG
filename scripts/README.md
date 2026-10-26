@@ -30,13 +30,14 @@
   ```
 
 - `eval_grouped_metrics.py`：按 84 个独立问题（去掉 `q01a` 这类改写后缀）重新
-  聚合多个结果文件，并输出中文、英文和中英混合切片。
+  聚合 Parent 指标，并将同一 Parent 下的多个 Child 去重。
 
   ```powershell
   uv run python scripts/eval_grouped_metrics.py `
-    --results tests/evals/results/2026-10-26-v2-evidence-148q.json `
-    --output tests/evals/results/2026-10-26-v2-evidence-148q-baseline.json `
+  --results tests/evals/results/2026-10-26-v2-clean-r2-148q.json `
+  --output tests/evals/results/2026-10-26-v2-parent-clean-r2-148q.json `
     --embedding-model BAAI/bge-m3 `
     --rerank-model BAAI/bge-reranker-v2-m3 `
-    --source-commit b88ceb4
+  --source-commit 765712f `
+  --baseline-status accepted
   ```
