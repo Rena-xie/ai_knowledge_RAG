@@ -12,6 +12,7 @@ from typing import Any
 from app.services.retrieval import RetrievalService
 
 RECALL_K = 5
+LANGUAGE_LABELS = frozenset({"zh", "en", "mixed"})
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,7 @@ class EvalQuestion:
     category: str
     question: str
     relevant_child_ids: tuple[int, ...] = ()
+    language: str = "zh"
 
 
 @dataclass(frozen=True)
@@ -30,6 +32,7 @@ class QuestionResult:
 
     question_id: str
     category: str
+    language: str
     retrieved: tuple[int, ...]
     recall_at_5: float | None
     hit_at_5: bool | None
@@ -69,6 +72,7 @@ class EvalReport:
                 {
                     "question_id": result.question_id,
                     "category": result.category,
+                    "language": result.language,
                     "retrieved": list(result.retrieved),
                     "recall_at_5": result.recall_at_5,
                     "hit_at_5": result.hit_at_5,
@@ -119,6 +123,7 @@ class EvaluationRunner:
                 QuestionResult(
                     question_id=item.id,
                     category=item.category,
+                    language=item.language,
                     retrieved=retrieved,
                     recall_at_5=recall,
                     hit_at_5=hit,
@@ -268,6 +273,9 @@ def load_questions(path: Path) -> list[EvalQuestion]:
     """从 JSON 题库加载评测题，校验 id 唯一。"""
 
     payload = json.loads(path.read_text(encoding="utf-8"))
+    default_language = str(payload.get("default_language", "zh"))
+    if default_language not in LANGUAGE_LABELS:
+        raise ValueError(f"未知默认语言: {default_language}")
     questions: list[EvalQuestion] = []
     seen: set[str] = set()
     for raw in payload.get("questions", []):
@@ -275,6 +283,9 @@ def load_questions(path: Path) -> list[EvalQuestion]:
         if question_id in seen:
             raise ValueError(f"题库存在重复 id: {question_id}")
         seen.add(question_id)
+        language = str(raw.get("language", default_language))
+        if language not in LANGUAGE_LABELS:
+            raise ValueError(f"题目语言不合法: {question_id}={language}")
         questions.append(
             EvalQuestion(
                 id=question_id,
@@ -283,6 +294,7 @@ def load_questions(path: Path) -> list[EvalQuestion]:
                 relevant_child_ids=tuple(
                     int(value) for value in raw.get("relevant_child_ids", [])
                 ),
+                language=language,
             )
         )
     if not questions:

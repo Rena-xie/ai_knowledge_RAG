@@ -39,3 +39,5 @@ _bmad-output/
 tests/evals/results/*.json
 !tests/evals/results/2026-10-20-v2-128q-literal.json
 !tests/evals/results/2026-10-20-v2-128q-literal-grouped.json
+!tests/evals/results/2026-10-26-v2-language-slices-20q.json
+!tests/evals/results/2026-10-26-v2-core-148q-baseline.json

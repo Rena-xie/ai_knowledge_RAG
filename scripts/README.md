@@ -29,11 +29,16 @@
   uv run python scripts/run_eval.py --workdir E:/ai_kb_data/eval-kb-v3 --output tests/evals/results/latest.json
   ```
 
-- `eval_grouped_metrics.py`：按独立问题（去掉 `q01a` 这类改写后缀）重新聚合已有
-  结果，避免改写题多的类别在汇总指标中被放大。
+- `eval_grouped_metrics.py`：按 84 个独立问题（去掉 `q01a` 这类改写后缀）重新
+  聚合多个结果文件，并输出中文、英文和中英混合切片。
 
   ```powershell
   uv run python scripts/eval_grouped_metrics.py `
-    --results tests/evals/results/2026-10-20-v2-128q-literal.json `
-    --output tests/evals/results/2026-10-20-v2-128q-literal-grouped.json
+    --results `
+      tests/evals/results/2026-10-20-v2-128q-literal.json `
+      tests/evals/results/2026-10-26-v2-language-slices-20q.json `
+    --output tests/evals/results/2026-10-26-v2-core-148q-baseline.json `
+    --embedding-model BAAI/bge-m3 `
+    --rerank-model BAAI/bge-reranker-v2-m3 `
+    --source-commit 00d7d78
   ```

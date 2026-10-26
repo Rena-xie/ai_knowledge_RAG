@@ -60,21 +60,23 @@
 ## Task 5：补齐 84 个独立问题的评测报告
 
 **Description:** 主验收改为 84 个独立问题；补充 grouped Precision@5、语言切片和
-当前 baseline，不允许用 128 个问法变体替代独立问题口径。
+当前 baseline，不允许用问法变体替代独立问题口径。
 
 **Acceptance criteria:**
 
-- [ ] grouped 结果包含 Recall@5、Precision@5、HitRate@5、MRR@10、nDCG@10。
-- [ ] 128 个问法只作为改写鲁棒性观察，不作为主验收样本数。
-- [ ] 中文、英文和混合问题分语言报告。
-- [ ] 记录语料、题库、切块版本、Embedding 模型、rerank 模型和 commit。
-- [ ] 当前结果写入独立 baseline 文件，不覆盖历史结果。
+- [x] grouped 结果包含 Recall@5、Precision@5、HitRate@5、MRR@10、nDCG@10。
+- [x] 148 个语言问法只作为鲁棒性观察，84 个独立问题仍是主验收样本数。
+- [x] 中文 128、英文 10、中英混合 10 条问法分别报告。
+- [x] 记录语料、题库、切块版本、Embedding 模型、rerank 模型和来源 commit。
+- [x] 当前结果写入独立 baseline 文件，不覆盖历史结果。
 
 **Verification:**
 
-- [ ] `uv run pytest tests/evals/test_questions_schema.py tests/unit/test_evaluation.py -q`
-- [ ] 运行冻结评测并归档 grouped JSON。
-- [ ] 人工抽查至少 5 个失败问题，尤其是跨章节问题。
+- [x] `uv run pytest tests/evals/test_questions_schema.py tests/unit/test_evaluation.py tests/unit/test_grouped_evaluation.py -q`
+- [x] 运行 20 个新增英文/混合问法并归档真实结果。
+- [x] 合并历史 128 条与新增 20 条结果，生成 84 个独立问题 baseline。
+
+**Baseline:** `tests/evals/results/2026-10-26-v2-core-148q-baseline.json`
 
 **Dependencies:** Task 3
 

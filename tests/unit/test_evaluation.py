@@ -94,6 +94,7 @@ def test_report_serializes_to_dict() -> None:
     assert payload["hit_rate_at_5"] == 1.0
     assert payload["results"][0]["question_id"] == "q1"
     assert payload["results"][0]["recall_at_5"] == 1.0
+    assert payload["results"][0]["language"] == "zh"
     assert payload["results"][0]["hit_at_5"] is True
     assert payload["precision_at_5"] == pytest.approx(0.2)
     assert payload["mrr_at_10"] == 1.0

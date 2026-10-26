@@ -1,9 +1,10 @@
 {
-  "version": 6,
+  "version": 7,
   "corpus": "tests/evals/corpus.json",
   "chunker_version": "v1",
   "snapshot": "2026-10-19",
-  "note": "原 22 题及同义改写基于 2026-10-15 语料；新增 42 道官方文档题基于 2026-10-19 eval-kb-v3 快照；跨章节题补充同章节相关 child_id；无答案题改为语料外主题；2026-10-20 新增 q65-q84 共 20 个独立主题（跨章节 10、代码查询 10），仍基于 eval-kb-v3 快照。语料或切块变化后需重新标注。",
+  "default_language": "zh",
+  "note": "原 22 题及同义改写基于 2026-10-15 语料；新增 42 道官方文档题基于 2026-10-19 eval-kb-v3 快照；跨章节题补充同章节相关 child_id；无答案题改为语料外主题；2026-10-20 新增 q65-q84 共 20 个独立主题（跨章节 10、代码查询 10）。2026-10-26 增加 10 个英文和 10 个中英混合变体，复用所属独立问题的相关 Child。语料或切块变化后需重新标注。",
   "questions": [
     {
       "id": "q01",
@@ -1087,6 +1088,192 @@
         2341,
         2342
       ]
+    },
+    {
+      "id": "q05e",
+      "category": "专有名词",
+      "language": "en",
+      "question": "Which layers make up the LangChain Deep Agents execution environment?",
+      "relevant_child_ids": [
+        2098,
+        2099
+      ]
+    },
+    {
+      "id": "q39e",
+      "category": "专有名词",
+      "language": "en",
+      "question": "Which companies are cited as trusting LangGraph to shape the future of agents?",
+      "relevant_child_ids": [
+        3229
+      ]
+    },
+    {
+      "id": "q27e",
+      "category": "语义改写",
+      "language": "en",
+      "question": "What are the design characteristics of FastAPI's dependency injection system?",
+      "relevant_child_ids": [
+        2768
+      ]
+    },
+    {
+      "id": "q44e",
+      "category": "语义改写",
+      "language": "en",
+      "question": "In a LangGraph retrieval agent, can the agent decide when to search the vector store and when to answer directly?",
+      "relevant_child_ids": [
+        3404
+      ]
+    },
+    {
+      "id": "q25e",
+      "category": "代码查询",
+      "language": "en",
+      "question": "In the FastAPI /items/ example, what is the default value of the read_item skip parameter?",
+      "relevant_child_ids": [
+        2693
+      ]
+    },
+    {
+      "id": "q79e",
+      "category": "代码查询",
+      "language": "en",
+      "question": "How do you create a FastAPI TestClient and send requests and assertions in a test?",
+      "relevant_child_ids": [
+        2916,
+        2917
+      ]
+    },
+    {
+      "id": "q17e",
+      "category": "跨章节",
+      "language": "en",
+      "question": "How do LangChain Deep Agents pause before sensitive operations and wait for human approval?",
+      "relevant_child_ids": [
+        2096,
+        2129,
+        2559,
+        2567,
+        2576
+      ]
+    },
+    {
+      "id": "q70e",
+      "category": "跨章节",
+      "language": "en",
+      "question": "After LangGraph interrupt() pauses execution, why is a checkpointer required for resumption?",
+      "relevant_child_ids": [
+        3328,
+        3318
+      ]
+    },
+    {
+      "id": "q18e",
+      "category": "无答案",
+      "language": "en",
+      "question": "How does Rust's borrow checker prevent data races at compile time?",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q19e",
+      "category": "无答案",
+      "language": "en",
+      "question": "How does COBOL's REDEFINES clause affect a record's memory layout?",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q05m",
+      "category": "专有名词",
+      "language": "mixed",
+      "question": "LangChain Deep Agents 的 execution environment 由哪些 layers 组成？",
+      "relevant_child_ids": [
+        2098,
+        2099
+      ]
+    },
+    {
+      "id": "q39m",
+      "category": "专有名词",
+      "language": "mixed",
+      "question": "LangGraph 被哪些 companies 信赖，用于 shaping the future of agents？",
+      "relevant_child_ids": [
+        3229
+      ]
+    },
+    {
+      "id": "q27m",
+      "category": "语义改写",
+      "language": "mixed",
+      "question": "FastAPI 的 dependency injection system 在 design 上有什么 characteristics？",
+      "relevant_child_ids": [
+        2768
+      ]
+    },
+    {
+      "id": "q44m",
+      "category": "语义改写",
+      "language": "mixed",
+      "question": "LangGraph retrieval agent 会决定何时 search vector store、何时直接 answer 吗？",
+      "relevant_child_ids": [
+        3404
+      ]
+    },
+    {
+      "id": "q25m",
+      "category": "代码查询",
+      "language": "mixed",
+      "question": "在 FastAPI /items/ example 中，read_item 的 skip parameter 默认值是多少？",
+      "relevant_child_ids": [
+        2693
+      ]
+    },
+    {
+      "id": "q79m",
+      "category": "代码查询",
+      "language": "mixed",
+      "question": "FastAPI TestClient 如何创建，test function 里如何 send request 和 assertion？",
+      "relevant_child_ids": [
+        2916,
+        2917
+      ]
+    },
+    {
+      "id": "q17m",
+      "category": "跨章节",
+      "language": "mixed",
+      "question": "Deep Agents 如何在 sensitive operations 前 pause，并等待 human approval？",
+      "relevant_child_ids": [
+        2096,
+        2129,
+        2559,
+        2567,
+        2576
+      ]
+    },
+    {
+      "id": "q70m",
+      "category": "跨章节",
+      "language": "mixed",
+      "question": "LangGraph interrupt() 暂停后，为什么必须配合 checkpointer 才能 resume？",
+      "relevant_child_ids": [
+        3328,
+        3318
+      ]
+    },
+    {
+      "id": "q18m",
+      "category": "无答案",
+      "language": "mixed",
+      "question": "Rust 的 borrow checker 如何在 compile time 防止 data race？",
+      "relevant_child_ids": []
+    },
+    {
+      "id": "q19m",
+      "category": "无答案",
+      "language": "mixed",
+      "question": "COBOL 的 REDEFINES clause 如何影响 record memory layout？",
+      "relevant_child_ids": []
     }
   ]
 }
