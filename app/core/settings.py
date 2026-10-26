@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     child_max_chars: int = 1000
     child_overlap_chars: int = 100
     context_budget_chars: int = 12000
+    content_preview_parent_limit: int = 20
 
     # 抓取
     fetch_timeout_s: int = 10

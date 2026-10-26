@@ -30,6 +30,7 @@ def test_defaults_match_design_doc() -> None:
     assert settings.child_max_chars == 1000
     assert settings.child_overlap_chars == 100
     assert settings.context_budget_chars == 12000
+    assert settings.content_preview_parent_limit == 20
     assert settings.fetch_max_bytes == 5242880
     assert settings.fetch_max_redirects == 5
     assert settings.polite_delay_s == 1.0

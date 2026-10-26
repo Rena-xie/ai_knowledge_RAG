@@ -23,7 +23,7 @@ Chroma 是可随时重建的派生索引；每条证据包含真实来源、Chil
 | --- | --- |
 | **网页知识收录** | 最终 URL 与别名、精确正文去重、SSRF 防护、`robots.txt` 合规检查、同主机限速、正文提取、结构感知切块、批量向量化、双索引写入 |
 | **异步入库** | 批量 URL 任务、单线程 FIFO Worker、逐条状态、失败重试、幂等键、重启恢复 |
-| **来源管理** | 分页列表、详情与状态查询、错误码回传、级联删除（关系数据 + 两处派生索引）、重复 URL 幂等处理 |
+| **来源管理** | 分页列表、详情与状态查询、只读正文/Parent/Child 预览、错误码回传、级联删除、重复 URL 幂等处理 |
 | **混合检索** | Dense + BM25 双路召回，RRF 融合 + Cross-Encoder rerank（失败回退 RRF），字面量查询按 BM25 名次提权；支持相关性门槛与单路降级 |
 | **可追溯证据** | 返回来源、Child、最终 URL、标题路径、分值与原文；Agent 可据此生成自己的回答和引用 |
 | **可运维** | 启动自检、健康检查实际探活 SQLite/FTS5/Chroma、索引全量/按来源重建、一致性校验、数据备份、滚动日志、`request_id` 全链路追踪 |
@@ -118,6 +118,7 @@ flowchart TB
 │   │   └── schemas.py          # 请求 / 响应数据模型
 │   ├── services/               # 应用服务层：编排业务流程
 │   │   ├── source.py           # 来源生命周期与级联删除
+│   │   ├── source_inspection.py # 只读正文与 Parent/Child 预览
 │   │   ├── ingestion.py        # 抓取 → 解析 → 切块 → 向量化 → 双索引
 │   │   ├── ingestion_jobs.py   # 批量异步任务、单线程 Worker、恢复
 │   │   ├── retrieval.py        # 双路召回 → RRF → rerank → 字面量提权 → 父级上下文
@@ -281,6 +282,9 @@ curl.exe "http://127.0.0.1:8000/api/v1/ingestions/{job_id}?wait_seconds=10"
 ```powershell
 # 重新抓取并替换指定来源（内容未变化时只更新 last_checked_at）
 curl.exe -X POST http://127.0.0.1:8000/api/v1/sources/12/refresh
+
+# 只读查看来源元数据、别名、集合、标签和 Parent/Child 正文
+curl.exe "http://127.0.0.1:8000/api/v1/sources/12/content?page=1&size=20"
 
 # 近 24 小时任务统计
 curl.exe "http://127.0.0.1:8000/api/v1/stats/ingestions?since_hours=24"

@@ -13,6 +13,7 @@ from app.services.ingestion import IngestionService
 from app.services.ingestion_jobs import IngestionWorker, JobService
 from app.services.retrieval import RetrievalService
 from app.services.source import SourceService
+from app.services.source_inspection import SourceInspectionService
 
 
 class Container:
@@ -61,6 +62,10 @@ class Container:
             session_factory=self.session_factory,
             vector_index=self.vector_index,
             fts_index=self.fts_index,
+        )
+        self.source_inspection_service = SourceInspectionService(
+            session_factory=self.session_factory,
+            parent_limit=settings.content_preview_parent_limit,
         )
         self.ingestion_service = IngestionService(
             session_factory=self.session_factory,

@@ -40,6 +40,78 @@ class SourceListResponse(BaseModel):
     size: int
 
 
+class SourceAliasPreviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    url: str
+    normalized_url: str
+    alias_type: str
+    created_at: str
+
+
+class CollectionPreviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    description: str | None
+    is_default: bool
+
+
+class TagPreviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+
+
+class ChildPreviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ordinal: int
+    heading_path: str
+    text: str
+    content_type: str
+
+
+class ParentPreviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ordinal: int
+    heading_path: str
+    content: str
+    children: list[ChildPreviewResponse]
+
+
+class SourceContentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    source_id: int
+    submitted_url: str
+    final_url: str
+    title: str | None
+    status: str
+    content_hash: str | None
+    fingerprint_version: str | None
+    language_code: str | None
+    identity_status: str
+    identity_verified_at: str | None
+    created_at: str
+    updated_at: str
+    processed_at: str | None
+    last_checked_at: str | None
+    aliases: list[SourceAliasPreviewResponse]
+    collections: list[CollectionPreviewResponse]
+    tags: list[TagPreviewResponse]
+    parent_total: int
+    child_total: int
+    page: int
+    size: int
+    parents: list[ParentPreviewResponse]
+
+
 class QuestionRequest(BaseModel):
     """检索与问答的公共请求体。"""
 

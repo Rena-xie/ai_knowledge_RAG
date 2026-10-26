@@ -157,7 +157,7 @@
 - [x] 黄金集离线可重复。
 - [x] 中英文解析达到批准阈值。
 - [x] 没有引入本地模型或新运行时依赖。
-- [ ] 人工审查失败样本后进入来源预览阶段。
+- [x] 人工审查失败样本后进入来源预览阶段。
 
 ## Phase 3：来源预览与知识组织
 
@@ -166,13 +166,13 @@
 **Description:** 增加来源元数据、别名、集合、标签、Parent 和 Child 的分页只读查询。
 
 **Acceptance criteria:**
-- [ ] completed 来源可分页返回完整正文树。
-- [ ] 非 completed 来源返回 `SOURCE_CONTENT_NOT_READY`。
-- [ ] 预览顺序稳定，内容与 SQLite 一致，不提供修改接口。
+- [x] completed 来源可分页返回完整正文树。
+- [x] 非 completed 来源返回 `SOURCE_CONTENT_NOT_READY`。
+- [x] 预览顺序稳定，内容与 SQLite 一致，不提供修改接口。
 
 **Verification:**
-- [ ] `uv run pytest tests/integration/test_api_sources.py -q`
-- [ ] 长文档分页边界和空 Parent/Child 异常数据测试。
+- [x] `uv run pytest tests/integration/test_api_sources.py -q`
+- [x] 长文档分页边界和空 Parent/Child 异常数据测试。
 
 **Dependencies:** Task 3
 
@@ -231,7 +231,7 @@
 
 ## Checkpoint C：组织与预览
 
-- [ ] 用户可查看解析正文和 Child。
+- [x] 用户可查看解析正文和 Child。
 - [ ] 集合、标签和来源关联符合语义。
 - [ ] 删除组织对象不影响正文和索引。
 - [ ] 人工审查 API 契约后进入过滤检索阶段。

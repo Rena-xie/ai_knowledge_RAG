@@ -8,6 +8,7 @@ from app.api.deps import Container
 from app.api.schemas import (
     IngestionCreateResponse,
     SkippedItemResponse,
+    SourceContentResponse,
     SourceListResponse,
     SourceResponse,
     SubmitSourceRequest,
@@ -59,6 +60,29 @@ def get_source(source_id: int, request: Request) -> SourceResponse:
     if source is None:
         raise AppError(ErrorCode.NOT_FOUND, f"来源不存在: {source_id}")
     return SourceResponse.model_validate(source)
+
+
+@router.get("/{source_id}/content", response_model=SourceContentResponse)
+def get_source_content(
+    source_id: int,
+    request: Request,
+    page: int = Query(1, ge=1),
+    size: int | None = Query(None, ge=1, le=100),
+) -> SourceContentResponse:
+    """分页查询来源元数据和 Parent/Child 正文树。"""
+
+    container = _container(request)
+    effective_size = (
+        min(20, container.settings.content_preview_parent_limit)
+        if size is None
+        else size
+    )
+    content = container.source_inspection_service.get_content(
+        source_id,
+        page=page,
+        size=effective_size,
+    )
+    return SourceContentResponse.model_validate(content)
 
 
 @router.delete("/{source_id}", status_code=204)
