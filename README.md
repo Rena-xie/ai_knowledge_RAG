@@ -283,7 +283,7 @@ curl.exe "http://127.0.0.1:8000/api/v1/ingestions/{job_id}?wait_seconds=10"
 # 重新抓取并替换指定来源（内容未变化时只更新 last_checked_at）
 curl.exe -X POST http://127.0.0.1:8000/api/v1/sources/12/refresh
 
-# 只读查看来源元数据、别名、集合、标签和 Parent/Child 正文
+# 只读查看来源元数据、别名和 Parent/Child 正文
 curl.exe "http://127.0.0.1:8000/api/v1/sources/12/content?page=1&size=20"
 
 # 近 24 小时任务统计

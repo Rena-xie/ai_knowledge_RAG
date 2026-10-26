@@ -1,497 +1,182 @@
-# v2 剩余任务清单
+# v2 Core RAG 任务清单
 
-依据：`PROJECT.md` 与 `项目开发说明_v2.md`。按依赖顺序执行；每个任务完成并通过验证后再进入下一个。
+> 目标：明确 URL 入库、混合检索、质量评测、基础安全和 API 成本观测。
+>
+> 已删除的多集合、标签、范围过滤、高级幂等、复杂统计和迁移平台不属于当前 v2。
 
-## Phase 1：数据基础与来源身份
+## 已完成基线
 
-## Task 1：建立 schema v4 与默认集合迁移
+### Task 1：来源身份与正文精确去重
 
-**Description:** 增加来源别名、集合、标签、来源身份元数据和幂等时间桶的 schema 基础，把现有来源关联到默认集合，不访问外网、不合并历史重复来源。
+- [x] 最终 URL 成为长期来源地址。
+- [x] 提交 URL、重定向 URL 和历史 URL 保存为别名。
+- [x] 相同正文只保留一个来源和一套索引。
+- [x] 相同最终 URL、不同正文返回 `SOURCE_IDENTITY_CONFLICT`。
+- [x] 历史重复来源不自动合并。
+- [x] Commit：`0ee031b`
 
-**Acceptance criteria:**
-- [x] v3 数据库副本可幂等升级到 schema v4。
-- [x] 既有来源全部关联默认集合，关系数据和 Child 数量不丢失。
-- [x] 未执行历史重复来源删除、合并或重新抓取。
-- [x] 幂等时间桶表完成迁移，旧 Job 可按 `created_at` 回填。
+### Task 2：中英文正文提取质量
 
-**Verification:**
-- [x] `pytest tests/unit/test_db.py -q`
-- [x] 使用 v3 数据库副本检查表、外键、唯一索引和行数。
+- [x] 建立 30 个真实公开页面和 2 个双语边界夹具。
+- [x] 标题、正文、噪声和结构指标达到冻结门槛。
+- [x] 支持 `zh/en/mixed/unknown` 确定性语言元数据。
+- [x] 离线质量测试和可选 live 检查分离。
+- [x] Commit：`5b94325`
 
-**Dependencies:** None
+### Task 3：来源正文只读预览
 
-**Files likely touched:**
-- `app/infra/db.py`
-- `tests/unit/test_db.py`
+- [x] completed 来源可分页返回 Parent/Child 正文树。
+- [x] 非 completed 或数据不完整返回 `SOURCE_CONTENT_NOT_READY`。
+- [x] Parent/Child 顺序稳定，不提供修改接口。
+- [x] 接口不暴露 `embedding_text`。
+- [x] Commit：`507bf48`
 
-**Estimated scope:** Medium — 2 files
+### 已完成检查点
 
-## Task 2：实现最终 URL、来源别名和 Job 身份字段
+- [x] 来源身份和迁移基线。
+- [x] 内容质量与双语元数据。
+- [x] 来源正文和 Child 可查看。
 
-**Description:** 以重定向后的最终 URL 更新来源长期身份，保留提交 URL、重定向 URL 和 HTML canonical/AMP 线索为别名；Job Item 暴露最终 URL。
+## Task 4：收敛已删除能力的公开字段
 
-**Acceptance criteria:**
-- [x] 新来源 `canonical_url` 是最终规范化 URL，提交 URL 仍可追溯。
-- [x] 同一来源刷新时最终 URL 改变会追加别名并保持 `source_id`。
-- [x] Job Item 包含 `final_url`，不存在别名时回退到初始 canonical URL。
-
-**Verification:**
-- [x] `pytest tests/integration/test_ingestion_service.py tests/integration/test_ingestions_api.py -q`
-- [x] 使用重定向夹具验证提交 URL、最终 URL 和别名。
-
-**Dependencies:** Task 1
-
-**Files likely touched:**
-- `app/services/source.py`
-- `app/services/ingestion.py`
-- `app/services/ingestion_jobs.py`
-- `app/api/schemas.py`
-- `tests/integration/test_ingestion_service.py`
-
-**Estimated scope:** Medium — 5 files
-
-## Task 3：实现正文指纹和新入库精确去重
-
-**Description:** 对规范化正文计算版本化 SHA-256，跨 URL 复用相同正文的既有来源；刷新与另一来源冲突时保留旧数据并失败。
+**Description:** 删除集合、标签等已移出 v2 范围的公开响应字段和小规模测试依赖。
+不执行破坏性数据库删除；遗留表可以作为内部结构保留。
 
 **Acceptance criteria:**
-- [x] 新 URL 与既有 completed 来源正文完全相同时，不新增来源、Child、FTS 或 Chroma 数据。
-- [x] 重复 Item 标记 skipped / `duplicate_content` 并返回既有 `source_id`。
-- [x] 刷新正文与其他来源重复时失败，原来源数据和索引保持可用。
-- [x] 升级前历史重复来源不自动合并。
+
+- [ ] 来源正文预览 Schema 不再返回 collections/tags。
+- [ ] OpenAPI 不暴露集合/标签管理或过滤接口。
+- [ ] README 和 v2 文档不再把组织能力描述为 v2 功能。
+- [ ] 现有来源、Parent、Child 和检索行为不变。
 
 **Verification:**
-- [x] `pytest tests/unit/test_fingerprint.py tests/integration/test_ingestion_service.py tests/integration/test_ingestions_api.py -q`
-- [x] AMP、打印版、镜像和普通 URL 使用同一内容夹具验证只保留一套索引。
 
-**Dependencies:** Task 2
-
-**Files likely touched:**
-- `app/domain/fingerprint.py`
-- `app/services/source_identity.py`
-- `app/services/ingestion.py`
-- `tests/unit/test_fingerprint.py`
-- `tests/integration/test_ingestion_service.py`
-
-**Estimated scope:** Medium — 5 files
-
-## Checkpoint A：数据身份
-
-- [x] schema v4 迁移通过。
-- [x] 最终 URL 和别名可追溯。
-- [x] 新入库与刷新去重正确，历史数据保持原状。
-- [x] 人工审查后进入内容质量阶段。
-
-## Phase 2：内容质量与双语
-
-## Task 4：建立中英文正文质量黄金集
-
-**Description:** 建立至少 30 个固定网页快照和人工标注，覆盖中文、英文、混合内容、标题、段落、列表、代码、表格和长章节。
-
-**Acceptance criteria:**
-- [x] 黄金集不依赖实时网络，CI 可离线运行。
-- [x] 报告标题、正文召回、噪声和关键结构块的逐页结果。
-- [x] 当前实现基线被记录，不以暂未达标为由修改阈值。
-
-**Verification:**
-- [x] `uv run pytest tests/content_quality/test_extraction_quality.py -q`
-- [x] 人工抽查黄金集标注和至少 5 个失败样本。
-
-**Dependencies:** None；测试资产可与 Task 1–3 并行建设。
-
-**Files likely touched:**
-- `tests/content_quality/cases.json`
-- `tests/content_quality/test_extraction_quality.py`
-- `scripts/content_quality_report.py`
-
-**Estimated scope:** Medium — 3 files
-
-## Task 5：增加确定性语言元数据
-
-**Description:** 根据正文中的 CJK、拉丁字符比例写入 `zh/en/mixed/unknown`，仅用于元数据和分语言评测，不新增模型依赖。
-
-**Acceptance criteria:**
-- [x] 中文、英文、混合和空正文样本分类稳定。
-- [x] 语言元数据随来源预览返回，不改变检索路径。
-- [x] 语言判定只使用确定性规则，不产生网络调用。
-
-**Verification:**
-- [x] `uv run pytest tests/unit/test_language.py tests/integration/test_ingestion_service.py -q`
-
-**Dependencies:** Task 4
-
-**Files likely touched:**
-- `app/domain/language.py`
-- `app/services/ingestion.py`
-- `tests/unit/test_language.py`
-- `tests/integration/test_ingestion_service.py`
-
-**Estimated scope:** Small — 4 files
-
-## Task 6：按黄金集修正正文提取
-
-**Description:** 先读取 Task 4 基线，只修正已证实失败的标题、正文或结构提取，不进行无证据的解析器重写。
-
-**Acceptance criteria:**
-- [x] 标题准确率 ≥ 95%。
-- [x] 正文字符召回 ≥ 95%，非正文噪声 ≤ 10%。
-- [x] 关键结构保留率 ≥ 95%，中英文各自报告结果。
-- [x] 解析器变化不降低已有上游夹具通过率。
-
-**Verification:**
-- [x] `uv run pytest tests/content_quality tests/unit/test_parser.py tests/unit/test_chunking_parse.py -q`
-- [x] 对比 Task 4 基线并记录失败样本变化。
-
-**Dependencies:** Task 4, Task 5
-
-**Files likely touched:**
-- `app/infra/parser.py`
-- `app/domain/chunking.py`
-- `tests/content_quality/cases.json`
-- `tests/unit/test_parser.py`
-
-**Estimated scope:** Medium — 4 files
-
-## Checkpoint B：内容质量
-
-- [x] 黄金集离线可重复。
-- [x] 中英文解析达到批准阈值。
-- [x] 没有引入本地模型或新运行时依赖。
-- [x] 人工审查失败样本后进入来源预览阶段。
-
-## Phase 3：来源预览与知识组织
-
-## Task 7：实现来源正文和切块只读预览
-
-**Description:** 增加来源元数据、别名、集合、标签、Parent 和 Child 的分页只读查询。
-
-**Acceptance criteria:**
-- [x] completed 来源可分页返回完整正文树。
-- [x] 非 completed 来源返回 `SOURCE_CONTENT_NOT_READY`。
-- [x] 预览顺序稳定，内容与 SQLite 一致，不提供修改接口。
-
-**Verification:**
-- [x] `uv run pytest tests/integration/test_api_sources.py -q`
-- [x] 长文档分页边界和空 Parent/Child 异常数据测试。
+- [ ] `uv run pytest tests/integration/test_source_inspection.py tests/integration/test_api_sources.py -q`
+- [ ] `uv run ruff check .`
+- [ ] `uv run mypy`
 
 **Dependencies:** Task 3
 
-**Files likely touched:**
-- `app/services/source_inspection.py`
-- `app/api/sources.py`
-- `app/api/schemas.py`
-- `tests/integration/test_api_sources.py`
+## Task 5：补齐 84 个独立问题的评测报告
 
-**Estimated scope:** Medium — 4 files
-
-## Task 8：实现集合与标签领域服务
-
-**Description:** 增加集合和标签的创建、删除、关联和范围解析服务，保持来源正文和索引不被组织操作修改。
+**Description:** 主验收改为 84 个独立问题；补充 grouped Precision@5、语言切片和
+当前 baseline，不允许用 128 个问法变体替代独立问题口径。
 
 **Acceptance criteria:**
-- [ ] 一个来源可属于多个集合和多个标签。
-- [ ] 删除集合或标签只删除关联。
-- [ ] 默认集合不可删除，未指定组织时自动使用默认集合。
-- [ ] 解析空过滤集合时返回明确的空范围。
+
+- [ ] grouped 结果包含 Recall@5、Precision@5、HitRate@5、MRR@10、nDCG@10。
+- [ ] 128 个问法只作为改写鲁棒性观察，不作为主验收样本数。
+- [ ] 中文、英文和混合问题分语言报告。
+- [ ] 记录语料、题库、切块版本、Embedding 模型、rerank 模型和 commit。
+- [ ] 当前结果写入独立 baseline 文件，不覆盖历史结果。
 
 **Verification:**
-- [ ] `uv run pytest tests/integration/test_organization_service.py -q`
 
-**Dependencies:** Task 1
-
-**Files likely touched:**
-- `app/services/organization.py`
-- `tests/integration/test_organization_service.py`
-
-**Estimated scope:** Medium — 2 files
-
-## Task 9：暴露集合、标签和来源关联 API
-
-**Description:** 增加集合、标签和来源关联 REST 接口，并让来源详情体现组织信息。
-
-**Acceptance criteria:**
-- [ ] 集合和标签支持创建、列表、删除。
-- [ ] 来源支持批量加入集合、添加和移除标签。
-- [ ] API 校验名称、数量和未找到错误，不触发重新 Embedding。
-
-**Verification:**
-- [ ] `uv run pytest tests/integration/test_api_organization.py tests/integration/test_api_sources.py -q`
-- [ ] 检查 OpenAPI 中新增请求字段和错误响应。
-
-**Dependencies:** Task 7, Task 8
-
-**Files likely touched:**
-- `app/api/collections.py`
-- `app/api/sources.py`
-- `app/api/schemas.py`
-- `app/main.py`
-- `tests/integration/test_api_organization.py`
-
-**Estimated scope:** Medium — 5 files
-
-## Checkpoint C：组织与预览
-
-- [x] 用户可查看解析正文和 Child。
-- [ ] 集合、标签和来源关联符合语义。
-- [ ] 删除组织对象不影响正文和索引。
-- [ ] 人工审查 API 契约后进入过滤检索阶段。
-
-## Phase 4：过滤召回与双语评测
-
-## Task 10：为 FTS5 与 Chroma 增加来源范围条件
-
-**Description:** 在适配器层支持按允许来源集合过滤，避免先全库取 Top-K 再丢弃范围外结果。
-
-**Acceptance criteria:**
-- [ ] FTS5 的 MATCH 与来源范围在同一查询中生效。
-- [ ] Chroma 使用 `source_id` 元数据过滤。
-- [ ] 空来源集合不执行适配器查询。
-- [ ] 现有无过滤搜索行为保持不变。
-
-**Verification:**
-- [ ] `uv run pytest tests/unit/test_fts.py tests/unit/test_vector.py -q`
-
-**Dependencies:** Task 9
-
-**Files likely touched:**
-- `app/infra/fts.py`
-- `app/infra/vector.py`
-- `tests/unit/test_fts.py`
-- `tests/unit/test_vector.py`
-
-**Estimated scope:** Medium — 4 files
-
-## Task 11：接入检索过滤器并暴露降级信息
-
-**Description:** 将集合、标签和 source_id 过滤解析后传入检索，公开 `degraded_routes` 并保持 RRF/rerank 顺序。
-
-**Acceptance criteria:**
-- [ ] 多集合 OR、多标签 AND、不同过滤类型交集。
-- [ ] 无匹配来源时返回空证据，不退回全库检索。
-- [ ] `/search` 返回实际降级路径。
-- [ ] 不存在集合或标签返回明确错误。
-
-**Verification:**
-- [ ] `uv run pytest tests/integration/test_retrieval_service.py tests/integration/test_api_search.py -q`
-
-**Dependencies:** Task 10
-
-**Files likely touched:**
-- `app/services/retrieval.py`
-- `app/api/search.py`
-- `app/api/schemas.py`
-- `tests/integration/test_retrieval_service.py`
-- `tests/integration/test_api_search.py`
-
-**Estimated scope:** Medium — 5 files
-
-## Task 12：建立中英文检索评测集
-
-**Description:** 在当前 128 题之外增加中文、英文和混合语言切片，分别报告 Recall、HitRate、MRR 和空证据准确率。
-
-**Acceptance criteria:**
-- [ ] 中文、英文和混合问法各有独立样本。
-- [ ] 语料包含页面快照哈希和切块版本。
-- [ ] 结果按语言分组，不与旧生成问答指标混算。
-- [ ] 标准 Recall@5 是否达到 0.80 明确记录。
-
-**Verification:**
 - [ ] `uv run pytest tests/evals/test_questions_schema.py tests/unit/test_evaluation.py -q`
-- [ ] 运行受控真实评测并归档结果 JSON。
+- [ ] 运行冻结评测并归档 grouped JSON。
+- [ ] 人工抽查至少 5 个失败问题，尤其是跨章节问题。
 
-**Dependencies:** Task 11
+**Dependencies:** Task 3
 
-**Files likely touched:**
-- `tests/evals/questions.json`
-- `tests/evals/corpus.json`
-- `tests/evals/test_questions_schema.py`
-- `tests/unit/test_evaluation.py`
+## Task 6：把核心检索指标做到达标
 
-**Estimated scope:** Medium — 4 files
-
-## Checkpoint D：过滤与双语检索
-
-- [ ] 过滤在召回阶段生效。
-- [ ] 中英文指标分别可复现。
-- [ ] 降级状态可观察。
-- [ ] 人工审查评测结果后进入可靠性阶段。
-
-## Phase 5：可靠性、安全与可观测性
-
-## Task 13：脱敏异常信息并修复 Job 日志关联
-
-**Description:** 仅向 API 返回稳定错误码和安全摘要，同时让结构化日志实际输出 Job 关联字段。
+**Description:** 基于 Task 5 的失败样本改善切块、混合召回、RRF、rerank 和字面量
+策略，不通过修改标注或降低门槛“达标”。
 
 **Acceptance criteria:**
-- [ ] 未知异常原文只写日志，不进入 Source/Item API。
-- [ ] JSON 日志实际包含 `job_id`、`item_id`、`client_run_id`。
-- [ ] 健康检查和通用异常响应不泄露内部路径。
+
+- [ ] Recall@5，84 个独立问题 ≥ 0.80。
+- [ ] Precision@5，84 个独立问题 ≥ 0.21，作为护栏指标。
+- [ ] HitRate@5 ≥ 0.85。
+- [ ] MRR@10 ≥ 0.70。
+- [ ] nDCG@10 ≥ 0.70。
+- [ ] 无答案准确率 ≥ 0.90。
+- [ ] 中文、英文和混合问题分别报告，不出现单语言整体失效。
 
 **Verification:**
-- [ ] `uv run pytest tests/unit/test_logging.py tests/unit/test_ingestion_jobs.py tests/integration/test_api_error_handling.py -q`
 
-**Dependencies:** Task 12
+- [ ] `uv run pytest tests/unit/test_rrf.py tests/unit/test_literal.py tests/integration/test_retrieval_service.py tests/integration/test_api_search.py -q`
+- [ ] 运行同一冻结评测，生成修改前后指标对比。
+- [ ] 人工查看跨章节、语义改写、专有名词和无答案失败样本。
 
-**Files likely touched:**
-- `app/core/logging.py`
-- `app/services/ingestion_jobs.py`
-- `app/services/ingestion.py`
-- `tests/unit/test_logging.py`
-- `tests/unit/test_ingestion_jobs.py`
+**Dependencies:** Task 5
 
-**Estimated scope:** Medium — 5 files
+## Task 7：增加最小 API 成本观测
 
-## Task 14：实现 24 小时幂等窗口
-
-**Description:** 让相同 Idempotency-Key 只在 24 小时内复用 Job，过期后允许创建新 Job。
+**Description:** 只记录 Embedding 和 rerank API 调用量、输入量、单价和估算费用，
+不建设账户、充值、余额或多租户计费。
 
 **Acceptance criteria:**
-- [ ] 24 小时内重复 key 返回原 Job。
-- [ ] 超过窗口后旧 key 可创建新 Job。
-- [ ] 并发相同 key 仍只创建一个有效 Job。
+
+- [ ] 记录 operation、provider、model、请求数、输入量、币种和费用。
+- [ ] 优先使用供应商 usage；无 usage 时明确标记估算口径。
+- [ ] 费用记录关联 request_id、job_id 和可用 source_id。
+- [ ] 入库任务可查看 Embedding 成本。
+- [ ] 检索可查看 Query Embedding 和 rerank 成本。
+- [ ] `GET /api/v1/costs?since_hours=24` 返回按操作和模型聚合的成本。
+- [ ] 超出配置预算时拒绝新的付费调用，并返回稳定错误码。
+- [ ] 不实现复杂账单和供应商未来价格预测。
 
 **Verification:**
-- [ ] `uv run pytest tests/unit/test_ingestion_jobs.py tests/integration/test_ingestions_api.py -q`
 
-**Dependencies:** Task 1
+- [ ] `uv run pytest tests/unit/test_cost.py tests/integration/test_api_costs.py -q`
+- [ ] 使用 Fake 响应验证 usage、估算、聚合和预算拒绝。
+- [ ] 检查日志和 API 不泄露密钥或完整上游响应。
 
-**Files likely touched:**
-- `app/services/ingestion_jobs.py`
-- `app/infra/db.py`
-- `tests/unit/test_ingestion_jobs.py`
-- `tests/integration/test_ingestions_api.py`
+**Dependencies:** Task 3
 
-**Estimated scope:** Medium — 4 files
+## Task 8：补齐核心安全与启动失败边界
 
-## Task 15：拒绝无效启动配置
-
-**Description:** 启动自检拒绝空 Embedding Key、无效 API Base、非正数关键参数；不在普通沙箱中访问未授权外部服务。
+**Description:** 保留现有 SSRF、robots、重定向、体积和密钥边界，补齐安全异常摘要、
+启动配置快速失败和日志关联。
 
 **Acceptance criteria:**
-- [ ] 空 Embedding Key 或空白 Base 启动失败。
-- [ ] 非正数 Top-K、超时和请求体限制启动失败。
-- [ ] 有效配置不受影响，错误信息不包含密钥。
+
+- [ ] 未知异常只返回稳定错误码和安全文案。
+- [ ] 空 API Key、空 Base URL、非正数超时/上限在启动时失败。
+- [ ] `request_id`、`job_id` 和可用 `source_id` 在结构化日志中实际输出。
+- [ ] SSRF、重定向、robots、内容类型和体积负向测试通过。
+- [ ] 服务默认只监听回环地址；文档明确无鉴权不可公网部署。
+- [ ] 不新增鉴权、多用户或公网部署功能。
 
 **Verification:**
-- [ ] `uv run pytest tests/unit/test_settings.py tests/unit/test_selfcheck.py -q`
 
-**Dependencies:** Task 13
+- [ ] `uv run pytest tests/unit/test_settings.py tests/unit/test_selfcheck.py tests/unit/test_logging.py tests/integration/test_api_error_handling.py tests/unit/test_fetcher.py -q`
+- [ ] 人工检查 API 错误和日志中不含密钥、内部路径或完整上游响应。
 
-**Files likely touched:**
-- `app/core/settings.py`
-- `app/core/selfcheck.py`
-- `tests/unit/test_settings.py`
-- `tests/unit/test_selfcheck.py`
+**Dependencies:** Task 3
 
-**Estimated scope:** Small — 4 files
+## Task 9：Core RAG 系统验收
 
-## Task 16：补齐任务统计与失败分布
-
-**Description:** 统计接口增加成功率和错误码分布，使用数据库聚合避免加载全部 Job。
+**Description:** 在同一个最终提交上运行核心 E2E、全量测试、静态检查和质量评测，
+形成 v2 Core RAG 验收记录。
 
 **Acceptance criteria:**
-- [ ] 返回时间窗口、状态数、成功率、平均耗时、队列深度和失败码分布。
-- [ ] 大数据量下不把所有 Job 加载到 Python 列表。
-- [ ] 现有统计字段保持兼容。
 
-**Verification:**
-- [ ] `uv run pytest tests/unit/test_ingestion_jobs.py tests/integration/test_ingestions_api.py -q`
-
-**Dependencies:** Task 14
-
-**Files likely touched:**
-- `app/services/ingestion_jobs.py`
-- `app/api/stats.py`
-- `app/api/schemas.py`
-- `tests/integration/test_ingestions_api.py`
-
-**Estimated scope:** Medium — 4 files
-
-## Task 17：加固索引重建互斥与失败边界
-
-**Description:** 为重建增加进程内互斥和明确失败/恢复状态，避免在线并发重建损坏派生索引。
-
-**Acceptance criteria:**
-- [ ] 在线重建期间第二个重建被拒绝。
-- [ ] Embedding/FTS/Chroma 任一失败不会损坏 SQLite 权威数据。
-- [ ] 失败后一致性检查能定位不一致，重新执行重建可恢复。
-
-**Verification:**
-- [ ] `uv run pytest tests/integration/test_maintenance_service.py -q`
-
-**Dependencies:** Task 16
-
-**Files likely touched:**
-- `app/services/maintenance.py`
-- `app/cli/maintenance.py`
-- `tests/integration/test_maintenance_service.py`
-- `scripts/README.md`
-
-**Estimated scope:** Medium — 4 files
-
-## Checkpoint E：可靠性与安全
-
-- [ ] 异常、日志、统计、幂等和重建测试通过。
-- [ ] 启动配置失效时快速失败。
-- [ ] RAG 仍不调用 LLM。
-- [ ] 人工审查后进入迁移和发布验收。
-
-## Phase 6：迁移与发布
-
-## Task 18：完成真实数据副本迁移与恢复演练
-
-**Description:** 用当前真实 SQLite/Chroma 的副本验证 v3→v4 迁移、备份、恢复和回滚，不操作生产数据。
-
-**Acceptance criteria:**
-- [ ] 迁移前后来源数、Parent/Child 数和索引 ID 差异可解释。
-- [ ] 默认集合及既有来源关联正确。
-- [ ] 备份可恢复，回滚到 v3 后可读取。
-- [ ] 不自动访问外网或合并历史重复来源。
-
-**Verification:**
-- [ ] 在临时副本上执行备份、迁移、一致性检查和恢复。
-- [ ] 人工核对迁移报告。
-
-**Dependencies:** Task 17
-
-**Files likely touched:**
-- `tests/integration/test_maintenance_service.py`
-- `scripts/README.md`
-- `PROJECT.md`
-- `项目开发说明_v2.md`
-
-**Estimated scope:** Medium — 4 files
-
-## Task 19：完成 v2 最终验收与文档同步
-
-**Description:** 更新实现状态、评测结果、README、OpenAPI 说明和遗留风险，执行最终质量门禁。
-
-**Acceptance criteria:**
-- [ ] 所有 Must 场景有实际证据。
+- [ ] URL 入库至证据检索主链路通过。
+- [ ] 中文、英文和混合资料可入库和检索。
+- [ ] 84 个独立问题所有质量门槛通过。
+- [ ] API 成本可观测且预算拒绝有效。
+- [ ] 安全负向测试通过。
 - [ ] README、PROJECT、v2、OpenAPI 和实现一致。
-- [ ] Ruff、mypy、全量测试和覆盖率在同一个提交通过。
-- [ ] 历史旧结果明确标注为非 v2 验收指标。
+- [ ] 全量 pytest、覆盖率和 E2E 在同一个提交通过。
 
 **Verification:**
+
 - [ ] `uv run ruff check .`
 - [ ] `uv run mypy`
 - [ ] `uv run pytest --cov --cov-report=term-missing`
-- [ ] 人工复核验收表和未解决风险。
+- [ ] 运行核心 E2E 和完整检索评测。
+- [ ] 归档指标、成本、测试和 commit 证据。
 
-**Dependencies:** Task 18
+**Dependencies:** Task 4–8
 
-**Files likely touched:**
-- `README.md`
-- `PROJECT.md`
-- `项目开发说明_v2.md`
-- `tests/evals/README.md`
-- `.github/workflows/ci.yml`
+## Core RAG 验收检查点
 
-**Estimated scope:** Medium — 5 files
-
-## Final Checkpoint
-
-- [ ] v2 所有新能力与既有回归通过。
-- [ ] 迁移、备份和回滚有实际证据。
-- [ ] 无已知 P0/P1 问题。
-- [ ] 用户审核后发布。
+- [ ] 明确 URL 可以稳定写入知识库。
+- [ ] Dense + BM25 + RRF + rerank 返回可追溯证据。
+- [ ] 84 个独立问题的质量指标达标。
+- [ ] Precision@5 作为护栏达标且未牺牲 Recall。
+- [ ] API 成本可观测并受预算限制。
+- [ ] SSRF、robots、体积、密钥和错误信息边界通过。
+- [ ] 人工确认真实使用流程和失败行为。
