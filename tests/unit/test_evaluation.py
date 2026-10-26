@@ -9,19 +9,38 @@ from app.services.evaluation import (
     EvaluationRunner,
     load_questions,
 )
-from app.services.retrieval import RetrievalResult
+from app.services.retrieval import Evidence, RetrievalResult
 
 
 class FakeRetrieval:
-    def __init__(self, mapping: dict[str, tuple[int, ...]]) -> None:
+    def __init__(
+        self,
+        mapping: dict[str, tuple[int, ...]],
+        *,
+        fused_mapping: dict[str, tuple[int, ...]] | None = None,
+    ) -> None:
         self._mapping = mapping
+        self._fused_mapping = fused_mapping or mapping
         self.calls: list[str] = []
 
     def search(self, question: str) -> RetrievalResult:
         self.calls.append(question)
-        fused = self._mapping.get(question, ())
+        evidence_ids = self._mapping.get(question, ())
+        fused = self._fused_mapping.get(question, evidence_ids)
         return RetrievalResult(
-            evidences=(),
+            evidences=tuple(
+                Evidence(
+                    source_id=1,
+                    child_id=child_id,
+                    parent_id=1,
+                    title=None,
+                    url="https://example.com",
+                    heading_path="heading",
+                    text="text",
+                    score=1.0,
+                )
+                for child_id in evidence_ids
+            ),
             dense_ids=fused,
             bm25_ids=fused,
             fused_ids=fused,
@@ -95,6 +114,7 @@ def test_report_serializes_to_dict() -> None:
     assert payload["results"][0]["question_id"] == "q1"
     assert payload["results"][0]["recall_at_5"] == 1.0
     assert payload["results"][0]["language"] == "zh"
+    assert payload["results"][0]["fused_ids"] == [7, 8, 9]
     assert payload["results"][0]["hit_at_5"] is True
     assert payload["precision_at_5"] == pytest.approx(0.2)
     assert payload["mrr_at_10"] == 1.0
@@ -129,6 +149,20 @@ def test_non_empty_evidence_fails_no_answer_metric() -> None:
     report = runner.run([EvalQuestion("q1", "无答案", "无答案题")])
 
     assert report.empty_evidence_accuracy == 0.0
+
+
+def test_empty_evidence_ignores_nonempty_fused_candidates() -> None:
+    retrieval = FakeRetrieval(
+        {"无答案题": ()},
+        fused_mapping={"无答案题": (1, 2)},
+    )
+    runner = EvaluationRunner(retrieval_service=retrieval)
+
+    report = runner.run([EvalQuestion("q1", "无答案", "无答案题")])
+
+    assert report.empty_evidence_accuracy == 1.0
+    assert report.results[0].retrieved == ()
+    assert report.results[0].fused_ids == (1, 2)
 
 
 def test_load_questions_reads_json(tmp_path: Path) -> None:

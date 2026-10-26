@@ -74,9 +74,10 @@
 
 - [x] `uv run pytest tests/evals/test_questions_schema.py tests/unit/test_evaluation.py tests/unit/test_grouped_evaluation.py -q`
 - [x] 运行 20 个新增英文/混合问法并归档真实结果。
-- [x] 合并历史 128 条与新增 20 条结果，生成 84 个独立问题 baseline。
+- [x] 修正评测使用最终 `evidences`，完整重跑 148 个问法。
+- [x] 生成 84 个独立问题的 corrected baseline。
 
-**Baseline:** `tests/evals/results/2026-10-26-v2-core-148q-baseline.json`
+**Baseline:** `tests/evals/results/2026-10-26-v2-evidence-148q-baseline.json`
 
 **Dependencies:** Task 3
 
@@ -85,8 +86,12 @@
 **Description:** 基于 Task 5 的失败样本改善切块、混合召回、RRF、rerank 和字面量
 策略，不通过修改标注或降低门槛“达标”。
 
+**Corrected baseline:** Recall@5 `0.6323`、Precision@5 `0.1661`、
+HitRate@5 `0.7544`、MRR@10 `0.7019`、nDCG@10 `0.6274`、无答案 `1.0`。
+
 **Acceptance criteria:**
 
+- [x] 评测只使用最终 `evidences`，`fused_ids` 仅保留为诊断。
 - [ ] Recall@5，84 个独立问题 ≥ 0.80。
 - [ ] Precision@5，84 个独立问题 ≥ 0.21，作为护栏指标。
 - [ ] HitRate@5 ≥ 0.85。

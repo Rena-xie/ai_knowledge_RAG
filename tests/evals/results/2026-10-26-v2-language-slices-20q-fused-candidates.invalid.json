@@ -1,4 +1,6 @@
 {
+  "validity": "invalid",
+  "invalid_reason": "empty_evidence was computed from internal fused candidate IDs instead of final returned evidences.",
   "created_at": "2026-10-26T04:07:22Z",
   "questions_file": "tests/evals/questions_language_slices.json",
   "question_subset": "language=en,mixed",

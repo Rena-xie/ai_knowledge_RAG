@@ -248,6 +248,10 @@ def run_eval(
                 "recall_at_5": "命中的相关 child 数 / 该题全部相关 child 数",
                 "hit_rate_at_5": "前 5 条是否至少命中一个相关 child",
                 "precision_at_5": "命中的相关 child 数 / 5",
+                "mrr_at_10": "第一个相关 child 的倒数排名",
+                "ndcg_at_10": "按相关标注计算的排序增益",
+                "empty_evidence_accuracy": "无答案题是否返回空最终证据",
+                "retrieved": "最终 evidences 的 child_id；fused_ids 仅用于诊断",
             },
             **report.as_dict(),
         }

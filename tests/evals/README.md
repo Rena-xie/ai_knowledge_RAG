@@ -20,10 +20,18 @@
   `answer_type`、`citations_validated` 和 `citation_count` 来自已移除的 RAG
   生成链路，只用于历史溯源，不参与当前检索验收。
 - `2026-10-20-v2-128q-literal-grouped.json`：按 84 个独立问题重新聚合的结果。
-- `2026-10-26-v2-language-slices-20q.json`：新增 10 条英文和 10 条混合问法的真实
-  检索结果，使用冻结的 `eval-kb-v3`。
-- `2026-10-26-v2-core-148q-baseline.json`：当前 Core RAG baseline。整体使用
-  84 个独立问题，同时给出 Chinese/English/Mixed 语言切片。
+- `2026-10-26-v2-evidence-148q.json`：在冻结 `eval-kb-v3` 上重新执行 148 个
+  语言问法的原始结果。所有指标使用最终返回的 `evidences`；`fused_ids` 仅作诊断。
+- `2026-10-26-v2-evidence-148q-baseline.json`：当前有效 Core RAG baseline。
+  整体使用 84 个独立问题，同时给出 Chinese/English/Mixed 语言切片。
+- `*-fused-candidates.invalid.json`：早期错误口径结果，仅保留用于故障溯源。
+  这些文件使用内部融合候选计算指标，不能用于验收。
+
+当前有效 baseline（84 个独立问题）：
+
+| Recall@5 | Precision@5 | HitRate@5 | MRR@10 | nDCG@10 | 空证据准确率 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.6323 | 0.1661 | 0.7544 | 0.7019 | 0.6274 | 1.0 |
 
 历史基线和消融结果保留在本地，不纳入公开仓库；需要时可以重新运行评测生成。
 
@@ -45,8 +53,8 @@
   并已补跑 rerank 开/关基线，结果见上。
 - 2026-10-26 新增 10 条英文和 10 条中英混合问法。它们复用所属独立问题的标注，
   用于语言鲁棒性，不增加独立问题数量。
-- 当前检索级无答案准确率为 `0.0`。历史文件中的 `answer_type=insufficient_evidence`
-  属于已删除的问答链路，不能替代 RAG 空证据指标。
+- 当前有效评测使用最终 `evidences`，无答案准确率为 `1.0`。历史文件中的
+  `answer_type=insufficient_evidence` 属于已删除的问答链路，不能替代 RAG 空证据指标。
 
 标注约定：
 
@@ -66,12 +74,10 @@ uv run python scripts/run_eval.py --dump-children tests/evals/children.json
 uv run python scripts/run_eval.py --use-current-db      # 改用自己的知识库
 
 uv run python scripts/eval_grouped_metrics.py `
-  --results `
-    tests/evals/results/2026-10-20-v2-128q-literal.json `
-    tests/evals/results/2026-10-26-v2-language-slices-20q.json `
-  --output tests/evals/results/2026-10-26-v2-core-148q-baseline.json `
+  --results tests/evals/results/2026-10-26-v2-evidence-148q.json `
+  --output tests/evals/results/2026-10-26-v2-evidence-148q-baseline.json `
   --embedding-model BAAI/bge-m3 `
   --rerank-model BAAI/bge-reranker-v2-m3 `
-  --source-commit 00d7d78 `
-  --note "历史 128 条 + 2026-10-26 新增语言切片"
+  --source-commit b88ceb4 `
+  --note "2026-10-26 完整 148 条语言问法，使用最终 evidences"
 ```

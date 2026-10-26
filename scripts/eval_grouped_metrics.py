@@ -311,6 +311,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "embedding_model": args.embedding_model,
             "rerank_model": args.rerank_model,
             "source_commit": args.source_commit,
+            "metric_source": "final_evidences",
+            "fused_ids_usage": "diagnostic_only",
             "note": args.note,
         }
     )

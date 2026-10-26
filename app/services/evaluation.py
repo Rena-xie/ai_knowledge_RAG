@@ -34,6 +34,7 @@ class QuestionResult:
     category: str
     language: str
     retrieved: tuple[int, ...]
+    fused_ids: tuple[int, ...]
     recall_at_5: float | None
     hit_at_5: bool | None
     empty_evidence: bool
@@ -74,6 +75,7 @@ class EvalReport:
                     "category": result.category,
                     "language": result.language,
                     "retrieved": list(result.retrieved),
+                    "fused_ids": list(result.fused_ids),
                     "recall_at_5": result.recall_at_5,
                     "hit_at_5": result.hit_at_5,
                     "empty_evidence": result.empty_evidence,
@@ -102,7 +104,10 @@ class EvaluationRunner:
         results: list[QuestionResult] = []
         for item in questions:
             retrieval = self._retrieval_service.search(item.question)
-            retrieved = tuple(retrieval.fused_ids[:10])
+            retrieved = tuple(
+                evidence.child_id for evidence in retrieval.evidences[:10]
+            )
+            fused_ids = tuple(retrieval.fused_ids[:10])
             top_k = retrieved[:RECALL_K]
             recall: float | None = None
             hit: bool | None = None
@@ -125,9 +130,10 @@ class EvaluationRunner:
                     category=item.category,
                     language=item.language,
                     retrieved=retrieved,
+                    fused_ids=fused_ids,
                     recall_at_5=recall,
                     hit_at_5=hit,
-                    empty_evidence=not retrieved,
+                    empty_evidence=not retrieval.evidences,
                     max_similarity=retrieval.max_similarity,
                     precision_at_5=precision,
                     mrr_at_10=mrr,

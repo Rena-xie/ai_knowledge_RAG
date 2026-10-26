@@ -34,11 +34,9 @@
 
   ```powershell
   uv run python scripts/eval_grouped_metrics.py `
-    --results `
-      tests/evals/results/2026-10-20-v2-128q-literal.json `
-      tests/evals/results/2026-10-26-v2-language-slices-20q.json `
-    --output tests/evals/results/2026-10-26-v2-core-148q-baseline.json `
+    --results tests/evals/results/2026-10-26-v2-evidence-148q.json `
+    --output tests/evals/results/2026-10-26-v2-evidence-148q-baseline.json `
     --embedding-model BAAI/bge-m3 `
     --rerank-model BAAI/bge-reranker-v2-m3 `
-    --source-commit 00d7d78
+    --source-commit b88ceb4
   ```

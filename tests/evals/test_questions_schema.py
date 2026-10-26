@@ -13,7 +13,7 @@ LANGUAGE_SLICE_PATH = Path(__file__).parent / "questions_language_slices.json"
 BASELINE_PATH = (
     Path(__file__).parent
     / "results"
-    / "2026-10-26-v2-core-148q-baseline.json"
+    / "2026-10-26-v2-evidence-148q-baseline.json"
 )
 CATEGORIES = {"专有名词", "语义改写", "代码查询", "跨章节", "无答案"}
 LANGUAGES = {"zh", "en", "mixed"}
@@ -61,13 +61,15 @@ def test_grouped_baseline_contract() -> None:
     assert baseline["questions_version"] == 7
     assert baseline["totals"]["groups"] == 84
     assert baseline["totals"]["variants"] == 148
-    assert baseline["totals"]["precision_at_5"] == pytest.approx(0.2147)
-    assert baseline["totals"]["empty_evidence_accuracy"] == 0.0
+    assert baseline["totals"]["precision_at_5"] == pytest.approx(0.1661)
+    assert baseline["totals"]["empty_evidence_accuracy"] == 1.0
+    assert baseline["metric_source"] == "final_evidences"
+    assert baseline["fused_ids_usage"] == "diagnostic_only"
     assert set(baseline["language_metrics"]) == LANGUAGES
     assert baseline["language_metrics"]["en"]["variants"] == 10
     assert baseline["language_metrics"]["mixed"]["variants"] == 10
     assert baseline["missing_question_ids"] == []
-    assert baseline["source_commit"] == "00d7d78"
+    assert baseline["source_commit"] == "b88ceb4"
 
 
 def test_only_no_answer_questions_are_unlabeled() -> None:
