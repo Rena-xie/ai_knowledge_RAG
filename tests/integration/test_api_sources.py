@@ -7,13 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.api.deps import Container
 from app.core.settings import get_settings
-from app.infra.db import (
-    KnowledgeCollection,
-    KnowledgeCollectionSource,
-    KnowledgeSource,
-    SourceTag,
-    Tag,
-)
+from app.infra.db import KnowledgeSource
 from app.infra.fetcher import FetchResult
 from app.main import create_app
 
@@ -125,34 +119,6 @@ def test_get_source_content_returns_read_only_tree(
         "/api/v1/sources",
         json={"url": "https://example.com/a?utm_source=x"},
     ).json()
-    container: Container = client.app.state.container
-    with container.session_factory() as session:
-        collection = KnowledgeCollection(
-            id="preview-collection",
-            name="预览集合",
-            description="read-only preview",
-            is_default=False,
-            created_at="2026-10-26T00:00:00Z",
-            updated_at="2026-10-26T00:00:00Z",
-        )
-        tag = Tag(name="preview", created_at="2026-10-26T00:00:00Z")
-        session.add_all([collection, tag])
-        session.flush()
-        session.add_all(
-            [
-                KnowledgeCollectionSource(
-                    collection_id=collection.id,
-                    source_id=created["id"],
-                    added_at="2026-10-26T00:00:00Z",
-                ),
-                SourceTag(
-                    source_id=created["id"],
-                    tag_id=tag.id,
-                    added_at="2026-10-26T00:00:00Z",
-                ),
-            ]
-        )
-        session.commit()
 
     response = client.get(f"/api/v1/sources/{created['id']}/content")
 
@@ -164,9 +130,6 @@ def test_get_source_content_returns_read_only_tree(
     assert body["status"] == "completed"
     assert body["language_code"] == "zh"
     assert body["aliases"]
-    assert body["collections"][0]["name"] == "预览集合"
-    assert [tag["name"] for tag in body["tags"]] == ["preview"]
-    assert isinstance(body["tags"][0]["id"], int)
     assert body["page"] == 1
     assert body["size"] == 20
     assert body["parent_total"] >= 1
@@ -265,6 +228,15 @@ def test_source_content_openapi_contract(client: TestClient) -> None:
         == "#/components/schemas/SourceContentResponse"
     )
     assert "ChildPreviewResponse" in openapi["components"]["schemas"]
+    properties = openapi["components"]["schemas"]["SourceContentResponse"][
+        "properties"
+    ]
+    assert "collections" not in properties
+    assert "tags" not in properties
+    assert all(
+        "collections" not in path and "tags" not in path
+        for path in openapi["paths"]
+    )
 
 
 def test_delete_source_cascades(client: TestClient) -> None:

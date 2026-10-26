@@ -44,16 +44,16 @@
 
 **Acceptance criteria:**
 
-- [ ] 来源正文预览 Schema 不再返回 collections/tags。
-- [ ] OpenAPI 不暴露集合/标签管理或过滤接口。
-- [ ] README 和 v2 文档不再把组织能力描述为 v2 功能。
-- [ ] 现有来源、Parent、Child 和检索行为不变。
+- [x] 来源正文预览 Schema 不再返回 collections/tags。
+- [x] OpenAPI 不暴露集合/标签管理或过滤接口。
+- [x] README 和 v2 文档不再把组织能力描述为 v2 功能。
+- [x] 现有来源、Parent、Child 和检索行为不变。
 
 **Verification:**
 
-- [ ] `uv run pytest tests/integration/test_source_inspection.py tests/integration/test_api_sources.py -q`
-- [ ] `uv run ruff check .`
-- [ ] `uv run mypy`
+- [x] `uv run pytest tests/integration/test_source_inspection.py tests/integration/test_api_sources.py -q`
+- [x] `uv run ruff check .`
+- [x] `uv run mypy`
 
 **Dependencies:** Task 3
 

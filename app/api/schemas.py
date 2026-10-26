@@ -49,22 +49,6 @@ class SourceAliasPreviewResponse(BaseModel):
     created_at: str
 
 
-class CollectionPreviewResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    name: str
-    description: str | None
-    is_default: bool
-
-
-class TagPreviewResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    name: str
-
-
 class ChildPreviewResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -103,8 +87,6 @@ class SourceContentResponse(BaseModel):
     processed_at: str | None
     last_checked_at: str | None
     aliases: list[SourceAliasPreviewResponse]
-    collections: list[CollectionPreviewResponse]
-    tags: list[TagPreviewResponse]
     parent_total: int
     child_total: int
     page: int

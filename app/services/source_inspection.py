@@ -12,13 +12,9 @@ from app.core.errors import AppError, ErrorCode
 from app.domain.state import SourceStatus
 from app.infra.db import (
     ChildChunk,
-    KnowledgeCollection,
-    KnowledgeCollectionSource,
     KnowledgeSource,
     ParentChunk,
     SourceAlias,
-    SourceTag,
-    Tag,
 )
 
 
@@ -28,20 +24,6 @@ class SourceAliasView:
     normalized_url: str
     alias_type: str
     created_at: str
-
-
-@dataclass(frozen=True)
-class CollectionView:
-    id: str
-    name: str
-    description: str | None
-    is_default: bool
-
-
-@dataclass(frozen=True)
-class TagView:
-    id: int
-    name: str
 
 
 @dataclass(frozen=True)
@@ -79,8 +61,6 @@ class SourceContentView:
     processed_at: str | None
     last_checked_at: str | None
     aliases: tuple[SourceAliasView, ...]
-    collections: tuple[CollectionView, ...]
-    tags: tuple[TagView, ...]
     parent_total: int
     child_total: int
     page: int
@@ -143,8 +123,6 @@ class SourceInspectionService:
                 processed_at=source.processed_at,
                 last_checked_at=source.last_checked_at,
                 aliases=self._read_aliases(session, source_id),
-                collections=self._read_collections(session, source_id),
-                tags=self._read_tags(session, source_id),
                 parent_total=parent_total,
                 child_total=child_total,
                 page=page,
@@ -215,41 +193,6 @@ class SourceInspectionService:
             )
             for row in rows
         )
-
-    @staticmethod
-    def _read_collections(
-        session: Session,
-        source_id: int,
-    ) -> tuple[CollectionView, ...]:
-        rows = session.scalars(
-            select(KnowledgeCollection)
-            .join(
-                KnowledgeCollectionSource,
-                KnowledgeCollectionSource.collection_id
-                == KnowledgeCollection.id,
-            )
-            .where(KnowledgeCollectionSource.source_id == source_id)
-            .order_by(KnowledgeCollection.name, KnowledgeCollection.id)
-        ).all()
-        return tuple(
-            CollectionView(
-                id=row.id,
-                name=row.name,
-                description=row.description,
-                is_default=row.is_default,
-            )
-            for row in rows
-        )
-
-    @staticmethod
-    def _read_tags(session: Session, source_id: int) -> tuple[TagView, ...]:
-        rows = session.scalars(
-            select(Tag)
-            .join(SourceTag, SourceTag.tag_id == Tag.id)
-            .where(SourceTag.source_id == source_id)
-            .order_by(Tag.name, Tag.id)
-        ).all()
-        return tuple(TagView(id=row.id, name=row.name) for row in rows)
 
     def _read_parents(
         self,

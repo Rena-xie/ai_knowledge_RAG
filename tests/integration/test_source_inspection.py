@@ -9,13 +9,9 @@ from sqlalchemy import Engine, func, select
 from app.core.errors import AppError, ErrorCode
 from app.infra.db import (
     ChildChunk,
-    KnowledgeCollection,
-    KnowledgeCollectionSource,
     KnowledgeSource,
     ParentChunk,
     SourceAlias,
-    SourceTag,
-    Tag,
     create_db_engine,
     create_session_factory,
     init_db,
@@ -82,53 +78,6 @@ def add_completed_source(env: dict[str, object]) -> int:
                 ),
             ]
         )
-        first_collection = KnowledgeCollection(
-            id="collection-z",
-            name="z-collection",
-            description="Z",
-            is_default=False,
-            created_at=NOW,
-            updated_at=NOW,
-        )
-        second_collection = KnowledgeCollection(
-            id="collection-a",
-            name="a-collection",
-            description="A",
-            is_default=False,
-            created_at=NOW,
-            updated_at=NOW,
-        )
-        alpha_tag = Tag(name="alpha", created_at=NOW)
-        zeta_tag = Tag(name="zeta", created_at=NOW)
-        session.add_all(
-            [first_collection, second_collection, alpha_tag, zeta_tag]
-        )
-        session.flush()
-        session.add_all(
-            [
-                KnowledgeCollectionSource(
-                    collection_id=first_collection.id,
-                    source_id=source_id,
-                    added_at=NOW,
-                ),
-                KnowledgeCollectionSource(
-                    collection_id=second_collection.id,
-                    source_id=source_id,
-                    added_at=NOW,
-                ),
-                SourceTag(
-                    source_id=source_id,
-                    tag_id=zeta_tag.id,
-                    added_at=NOW,
-                ),
-                SourceTag(
-                    source_id=source_id,
-                    tag_id=alpha_tag.id,
-                    added_at=NOW,
-                ),
-            ]
-        )
-
         parents: dict[int, ParentChunk] = {}
         for ordinal in (2, 0, 1):
             parent = ParentChunk(
@@ -178,11 +127,6 @@ def test_returns_metadata_relations_and_ordered_parent_page(
         "submitted",
         "final",
     ]
-    assert [collection.name for collection in content.collections] == [
-        "a-collection",
-        "z-collection",
-    ]
-    assert [tag.name for tag in content.tags] == ["alpha", "zeta"]
     assert content.parent_total == 3
     assert content.child_total == 5
     assert [parent.ordinal for parent in content.parents] == [0, 1]
